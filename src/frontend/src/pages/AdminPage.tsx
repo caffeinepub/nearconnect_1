@@ -1,5 +1,16 @@
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Shield, Trash2, UserCheck } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  DollarSign,
+  Loader2,
+  Shield,
+  ShoppingCart,
+  Trash2,
+  UserCheck,
+} from "lucide-react";
 import { useState } from "react";
 import { BottomNav } from "../components/BottomNav";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
@@ -10,9 +21,39 @@ interface AdminPageProps {
 }
 
 export function AdminPage({ onNavigate }: AdminPageProps) {
-  const { allRealUsers, deleteUser, currentUser, theme } = useApp();
+  const {
+    allRealUsers,
+    deleteUser,
+    currentUser,
+    theme,
+    purchaseSettings,
+    savePurchaseSettings,
+  } = useApp();
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const isLight = theme === "light-clean";
+
+  // Purchase settings local state
+  const [purchaseEnabled, setPurchaseEnabled] = useState(
+    purchaseSettings?.enabled ?? true,
+  );
+  const [basicPrice, setBasicPrice] = useState(
+    purchaseSettings
+      ? (Number(purchaseSettings.basicPrice) / 100).toFixed(2)
+      : "0.99",
+  );
+  const [standardPrice, setStandardPrice] = useState(
+    purchaseSettings
+      ? (Number(purchaseSettings.standardPrice) / 100).toFixed(2)
+      : "2.99",
+  );
+  const [premiumPrice, setPremiumPrice] = useState(
+    purchaseSettings
+      ? (Number(purchaseSettings.premiumPrice) / 100).toFixed(2)
+      : "4.99",
+  );
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
 
   const displayUsers = allRealUsers.filter((u) => !u.isBot);
 
@@ -23,6 +64,36 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
     } else {
       setConfirmDelete(userId);
     }
+  };
+
+  const handleSavePurchaseSettings = async () => {
+    setSaveStatus("loading");
+    try {
+      await savePurchaseSettings({
+        enabled: purchaseEnabled,
+        basicPrice: BigInt(Math.round(Number.parseFloat(basicPrice) * 100)),
+        standardPrice: BigInt(
+          Math.round(Number.parseFloat(standardPrice) * 100),
+        ),
+        premiumPrice: BigInt(Math.round(Number.parseFloat(premiumPrice) * 100)),
+      });
+      setSaveStatus("success");
+      setTimeout(() => setSaveStatus("idle"), 2500);
+    } catch {
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    }
+  };
+
+  const inputStyle = {
+    background: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.07)",
+    border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.12)"}`,
+    borderRadius: 10,
+    padding: "8px 12px",
+    fontSize: 14,
+    color: isLight ? "#111" : "white",
+    outline: "none",
+    width: "100%",
   };
 
   return (
@@ -101,7 +172,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
           ) : (
             displayUsers.map((user, i) => {
               const isMe = user.id === currentUser?.id;
-              const isAdmin = user.id === "admin_001";
+              const isAdminUser = user.isAdmin === true;
               const isPendingDelete = confirmDelete === user.id;
               return (
                 <div
@@ -124,7 +195,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                       width: 44,
                       height: 44,
                       borderRadius: "50%",
-                      background: isAdmin
+                      background: isAdminUser
                         ? "linear-gradient(135deg, oklch(0.45 0.25 30), oklch(0.6 0.2 50))"
                         : `linear-gradient(135deg, oklch(0.5 0.25 ${200 + i * 37}), oklch(0.65 0.2 ${250 + i * 37}))`,
                       display: "flex",
@@ -153,7 +224,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                       >
                         {user.displayName}
                       </span>
-                      {isAdmin && (
+                      {isAdminUser && (
                         <span
                           style={{
                             fontSize: 10,
@@ -205,7 +276,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                   </div>
 
                   {/* Delete button */}
-                  {!isAdmin ? (
+                  {!isAdminUser ? (
                     <Button
                       data-ocid={`admin.user.delete_button.${i + 1}`}
                       onClick={() => handleDelete(user.id)}
@@ -275,6 +346,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
             Tap Confirm again to permanently delete this account.
             <button
               type="button"
+              data-ocid="admin.cancel_button"
               onClick={() => setConfirmDelete(null)}
               style={{
                 marginLeft: "auto",
@@ -289,6 +361,243 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
             </button>
           </div>
         )}
+
+        {/* In-App Purchases Section */}
+        <div
+          data-ocid="admin.purchases.section"
+          style={{
+            marginTop: 28,
+            background: isLight ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.04)",
+            border: `1px solid ${isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)"}`,
+            borderRadius: 18,
+            padding: "20px 18px",
+          }}
+        >
+          {/* Section header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 18,
+            }}
+          >
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                background:
+                  "linear-gradient(135deg, oklch(0.45 0.2 260), oklch(0.6 0.18 280))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <ShoppingCart size={16} style={{ color: "white" }} />
+            </div>
+            <div>
+              <h2
+                style={{
+                  fontFamily: "'Bricolage Grotesque', sans-serif",
+                  fontSize: 17,
+                  fontWeight: 700,
+                  color: isLight ? "#111" : "white",
+                  margin: 0,
+                }}
+              >
+                In-App Purchases
+              </h2>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  color: isLight ? "#888" : "rgba(255,255,255,0.4)",
+                }}
+              >
+                Control radius upgrade pricing
+              </p>
+            </div>
+          </div>
+
+          {/* Enable toggle */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 18,
+              padding: "12px 14px",
+              background: isLight
+                ? "rgba(0,0,0,0.04)"
+                : "rgba(255,255,255,0.05)",
+              borderRadius: 12,
+            }}
+          >
+            <div>
+              <Label
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: isLight ? "#111" : "white",
+                  cursor: "pointer",
+                }}
+              >
+                Enable Purchases
+              </Label>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  color: isLight ? "#888" : "rgba(255,255,255,0.4)",
+                  marginTop: 2,
+                }}
+              >
+                Allow users to upgrade their search radius
+              </p>
+            </div>
+            <Switch
+              data-ocid="admin.purchases.switch"
+              checked={purchaseEnabled}
+              onCheckedChange={setPurchaseEnabled}
+            />
+          </div>
+
+          {/* Price inputs */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[
+              {
+                label: "Basic (1km)",
+                value: basicPrice,
+                onChange: setBasicPrice,
+                ocid: "admin.purchases.input",
+              },
+              {
+                label: "Standard (5km)",
+                value: standardPrice,
+                onChange: setStandardPrice,
+                ocid: "admin.purchases.input",
+              },
+              {
+                label: "Premium (10km)",
+                value: premiumPrice,
+                onChange: setPremiumPrice,
+                ocid: "admin.purchases.input",
+              },
+            ].map(({ label, value, onChange, ocid }) => (
+              <div key={label}>
+                <Label
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: isLight ? "#555" : "rgba(255,255,255,0.55)",
+                    display: "block",
+                    marginBottom: 5,
+                  }}
+                >
+                  {label}
+                </Label>
+                <div style={{ position: "relative" }}>
+                  <DollarSign
+                    size={13}
+                    style={{
+                      position: "absolute",
+                      left: 10,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: isLight ? "#888" : "rgba(255,255,255,0.35)",
+                    }}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    data-ocid={ocid}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    style={{ ...inputStyle, paddingLeft: 28 }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Save button */}
+          <div style={{ marginTop: 18 }}>
+            <Button
+              data-ocid="admin.purchases.save_button"
+              onClick={handleSavePurchaseSettings}
+              disabled={saveStatus === "loading"}
+              style={{
+                width: "100%",
+                borderRadius: 12,
+                background:
+                  saveStatus === "success"
+                    ? "linear-gradient(135deg, oklch(0.5 0.2 145), oklch(0.65 0.18 160))"
+                    : saveStatus === "error"
+                      ? "linear-gradient(135deg, oklch(0.45 0.25 30), oklch(0.6 0.2 50))"
+                      : "linear-gradient(135deg, oklch(0.45 0.2 260), oklch(0.6 0.18 280))",
+                border: "none",
+                color: "white",
+                fontWeight: 600,
+                fontSize: 14,
+                padding: "11px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 7,
+                transition: "background 0.3s",
+              }}
+            >
+              {saveStatus === "loading" && (
+                <Loader2
+                  size={15}
+                  style={{ animation: "spin 0.8s linear infinite" }}
+                />
+              )}
+              {saveStatus === "success" && <CheckCircle2 size={15} />}
+              {saveStatus === "error" && <AlertTriangle size={15} />}
+              {saveStatus === "loading"
+                ? "Saving..."
+                : saveStatus === "success"
+                  ? "Saved!"
+                  : saveStatus === "error"
+                    ? "Save Failed"
+                    : "Save Settings"}
+            </Button>
+          </div>
+
+          {/* Status messages */}
+          {saveStatus === "success" && (
+            <div
+              data-ocid="admin.purchases.success_state"
+              style={{
+                marginTop: 10,
+                fontSize: 12,
+                color: "oklch(0.75 0.2 145)",
+                textAlign: "center",
+              }}
+            >
+              Purchase settings saved successfully.
+            </div>
+          )}
+          {saveStatus === "error" && (
+            <div
+              data-ocid="admin.purchases.error_state"
+              style={{
+                marginTop: 10,
+                fontSize: 12,
+                color: "oklch(0.7 0.2 30)",
+                textAlign: "center",
+              }}
+            >
+              Failed to save. Please try again.
+            </div>
+          )}
+        </div>
+
+        <div style={{ height: 16 }} />
       </div>
       <BottomNav active="admin" onNavigate={onNavigate} />
     </div>

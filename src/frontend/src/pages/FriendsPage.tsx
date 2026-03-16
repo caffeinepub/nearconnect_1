@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { MapPin, MessageCircle, Navigation } from "lucide-react";
+import { MapPin, MessageCircle, Navigation, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { BottomNav } from "../components/BottomNav";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
@@ -27,10 +27,17 @@ function getLastMessage(
 }
 
 export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
-  const { friends, radiusLabel, getConversation, theme, userLocation } =
-    useApp();
+  const {
+    friends,
+    radiusLabel,
+    getConversation,
+    theme,
+    userLocation,
+    refreshFriends,
+  } = useApp();
   const isLight = theme === "light-clean";
   const [locationRequested, setLocationRequested] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRequestLocation = () => {
     setLocationRequested(true);
@@ -38,6 +45,12 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
       () => {},
       () => {},
     );
+  };
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    refreshFriends();
+    setTimeout(() => setIsRefreshing(false), 1200);
   };
 
   const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -94,26 +107,57 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                 {friends.filter((f) => f.online).length} online now
               </p>
             </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                background: "rgba(128,200,255,0.15)",
-                borderRadius: 20,
-                padding: "6px 12px",
-              }}
-            >
-              <MapPin size={13} style={{ color: "oklch(0.8 0.15 200)" }} />
-              <span
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {/* Refresh button */}
+              <button
+                type="button"
+                data-ocid="friends.refresh.button"
+                onClick={handleRefresh}
+                title="Refresh friends"
                 style={{
+                  background: "rgba(128,200,255,0.12)",
+                  border: "1px solid rgba(128,200,255,0.2)",
+                  borderRadius: 10,
+                  width: 34,
+                  height: 34,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
                   color: "oklch(0.8 0.15 200)",
-                  fontSize: 12,
-                  fontWeight: 600,
+                  transition: "background 0.15s",
                 }}
               >
-                {radiusLabel} radius
-              </span>
+                <RefreshCw
+                  size={15}
+                  style={{
+                    transition: "transform 0.6s ease",
+                    transform: isRefreshing ? "rotate(360deg)" : "rotate(0deg)",
+                  }}
+                />
+              </button>
+              {/* Radius badge */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "rgba(128,200,255,0.15)",
+                  borderRadius: 20,
+                  padding: "6px 12px",
+                }}
+              >
+                <MapPin size={13} style={{ color: "oklch(0.8 0.15 200)" }} />
+                <span
+                  style={{
+                    color: "oklch(0.8 0.15 200)",
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  {radiusLabel} radius
+                </span>
+              </div>
             </div>
           </div>
         </div>

@@ -10,7 +10,115 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
-export interface _SERVICE {}
+export interface Coordinates { 'latitude' : string, 'longitude' : string }
+export interface Location { 'lat' : number, 'lng' : number, 'updatedAt' : Time }
+export interface LocationInput { 'lat' : number, 'lng' : number }
+export interface PurchaseSettings {
+  'basicPrice' : bigint,
+  'premiumPrice' : bigint,
+  'enabled' : boolean,
+  'standardPrice' : bigint,
+}
+export interface ShoppingItem {
+  'productName' : string,
+  'currency' : string,
+  'quantity' : bigint,
+  'priceInCents' : bigint,
+  'productDescription' : string,
+}
+export interface StripeConfiguration {
+  'allowedCountries' : Array<string>,
+  'secretKey' : string,
+}
+export type StripeSessionStatus = {
+    'completed' : { 'userPrincipal' : [] | [string], 'response' : string }
+  } |
+  { 'failed' : { 'error' : string } };
+export type Time = bigint;
+export interface TransformationInput {
+  'context' : Uint8Array,
+  'response' : http_request_result,
+}
+export interface TransformationOutput {
+  'status' : bigint,
+  'body' : Uint8Array,
+  'headers' : Array<http_header>,
+}
+export interface User {
+  'id' : string,
+  'username' : string,
+  'radiusTier' : bigint,
+  'displayName' : string,
+  'settings' : UserSettings,
+  'lastSeen' : Time,
+  'location' : [] | [Location],
+  'online' : boolean,
+}
+export interface UserInput {
+  'id' : string,
+  'username' : string,
+  'radiusTier' : bigint,
+  'displayName' : string,
+  'passwordHash' : string,
+}
+export interface UserProfile {
+  'id' : string,
+  'username' : string,
+  'radiusTier' : bigint,
+  'displayName' : string,
+  'settings' : UserSettings,
+  'lastSeen' : Time,
+  'location' : [] | [Location],
+  'online' : boolean,
+}
+export type UserRole = { 'admin' : null } |
+  { 'user' : null } |
+  { 'guest' : null };
+export interface UserSettings {
+  'notifications' : boolean,
+  'showOnlineStatus' : boolean,
+  'showInRadius' : boolean,
+}
+export interface http_header { 'value' : string, 'name' : string }
+export interface http_request_result {
+  'status' : bigint,
+  'body' : Uint8Array,
+  'headers' : Array<http_header>,
+}
+export interface _SERVICE {
+  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'createCheckoutSession' : ActorMethod<
+    [Array<ShoppingItem>, string, string],
+    string
+  >,
+  'deleteUser' : ActorMethod<[string], undefined>,
+  'follow' : ActorMethod<[string], string>,
+  'getAllUsers' : ActorMethod<[], Array<User>>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getCoordinates' : ActorMethod<[], [] | [Coordinates]>,
+  'getFollowers' : ActorMethod<[string], Array<string>>,
+  'getFollowing' : ActorMethod<[string], Array<string>>,
+  'getPurchaseSettings' : ActorMethod<[], PurchaseSettings>,
+  'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
+  'getUserById' : ActorMethod<[string], [] | [User]>,
+  'getUserByUsername' : ActorMethod<[string], [] | [User]>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'isCallerAdmin' : ActorMethod<[], boolean>,
+  'isStripeConfigured' : ActorMethod<[], boolean>,
+  'register' : ActorMethod<[UserInput], User>,
+  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'saveCoordinates' : ActorMethod<[Coordinates], undefined>,
+  'setOnlineStatus' : ActorMethod<[string, boolean], User>,
+  'setPurchaseSettings' : ActorMethod<[PurchaseSettings], undefined>,
+  'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
+  'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
+  'unfollow' : ActorMethod<[string], string>,
+  'updateLocation' : ActorMethod<[string, LocationInput], User>,
+  'updateSettings' : ActorMethod<[string, UserSettings], User>,
+  'verifyCredentials' : ActorMethod<[string, string], [] | [User]>,
+}
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];
 export declare const idlFactory: IDL.InterfaceFactory;

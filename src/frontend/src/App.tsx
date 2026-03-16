@@ -14,7 +14,9 @@ const ADMIN_PASSWORD = "Qwerty12x";
 type Page = "auth" | "friends" | "search" | "chat" | "settings" | "admin";
 
 function isAdminPath(): boolean {
-  return window.location.pathname.includes("adminproz");
+  // Works for hash-based routing on ICP (e.g. yourapp.ic0.app/#adminproz)
+  // and path-based routing (e.g. yourapp.ic0.app/adminproz)
+  return window.location.href.includes("adminproz");
 }
 
 function hasAdminSession(): boolean {
@@ -93,6 +95,22 @@ function AdminGate() {
             }}
           >
             Enter the admin password to continue
+          </p>
+          <p
+            style={{
+              color: "rgba(255,255,255,0.25)",
+              fontSize: 11,
+              marginTop: 8,
+              background: "rgba(255,255,255,0.04)",
+              borderRadius: 8,
+              padding: "6px 10px",
+              wordBreak: "break-all",
+            }}
+          >
+            Access via:{" "}
+            <strong style={{ color: "rgba(255,255,255,0.45)" }}>
+              {window.location.origin}/#adminproz
+            </strong>
           </p>
         </div>
         <form

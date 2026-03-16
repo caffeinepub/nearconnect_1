@@ -25,7 +25,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
     setLoading(true);
     await new Promise((r) => setTimeout(r, 500));
     if (tab === "login") {
-      const ok = login(username.trim(), password);
+      const ok = await login(username.trim(), password);
       if (ok) {
         onAuth();
       } else {
@@ -37,11 +37,15 @@ export function AuthPage({ onAuth }: AuthPageProps) {
         setLoading(false);
         return;
       }
-      const ok = signup(username.trim(), displayName.trim(), password);
-      if (ok) {
+      const result = await signup(
+        username.trim(),
+        displayName.trim(),
+        password,
+      );
+      if (result.success) {
         onAuth();
       } else {
-        setError("Username already taken.");
+        setError(result.error);
       }
     }
     setLoading(false);
@@ -223,7 +227,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
               style={{
                 marginTop: 6,
                 background: "rgba(255,255,255,0.07)",

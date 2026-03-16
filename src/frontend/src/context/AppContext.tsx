@@ -6,6 +6,8 @@ import {
   useRef,
   useState,
 } from "react";
+import type { PurchaseSettings, backendInterface } from "../backend";
+import { createActorWithConfig } from "../config";
 
 export type Theme =
   | "liquid-flux"
@@ -79,18 +81,30 @@ const BOT_USER: FriendUser = {
   isBot: true,
 };
 
-const ADMIN_SEED: User = {
-  id: "admin_001",
-  username: "admin",
-  displayName: "Admin",
-  password: "admin123",
-  radiusTier: "free",
-  showOnlineStatus: true,
-  showInRadius: false,
-  notifications: true,
-  isAdmin: true,
-  createdAt: Date.now(),
-};
+function bigintToRadiusTier(n: bigint): RadiusTier {
+  switch (n) {
+    case 1n:
+      return "basic";
+    case 2n:
+      return "standard";
+    case 3n:
+      return "premium";
+    default:
+      return "free";
+  }
+}
+
+// Lazily initialized backend actor (module-level singleton)
+let _actorPromise: Promise<backendInterface> | null = null;
+function getActor(): Promise<backendInterface> {
+  if (!_actorPromise) {
+    _actorPromise = createActorWithConfig().catch((e) => {
+      _actorPromise = null;
+      throw e;
+    });
+  }
+  return _actorPromise;
+}
 
 export function getDistanceMeters(
   lat1: number,
@@ -115,12 +129,30 @@ export function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)}km away`;
 }
 
+function extractErrorMessage(e: unknown): string {
+  if (e instanceof Error) {
+    const msg = e.message;
+    // ICP canister errors are wrapped like: "Reject text: ..."
+    const rejectMatch = msg.match(/Reject text:\s*(.+)/i);
+    if (rejectMatch) return rejectMatch[1].trim();
+    // Also handle trap messages
+    const trapMatch = msg.match(/trapped.*?:\s*(.+)/i);
+    if (trapMatch) return trapMatch[1].trim();
+    return msg;
+  }
+  return String(e);
+}
+
 interface AppContextValue {
   theme: Theme;
   setTheme: (t: Theme) => void;
   currentUser: User | null;
-  login: (username: string, password: string) => boolean;
-  signup: (username: string, displayName: string, password: string) => boolean;
+  login: (username: string, password: string) => Promise<boolean>;
+  signup: (
+    username: string,
+    displayName: string,
+    password: string,
+  ) => Promise<{ success: true } | { success: false; error: string }>;
   logout: () => void;
   friends: FriendUser[];
   allUsers: FriendUser[];
@@ -136,6 +168,9 @@ interface AppContextValue {
   deleteUser: (userId: string) => void;
   userLocation: { lat: number; lng: number } | null;
   allRealUsers: User[];
+  refreshFriends: () => void;
+  purchaseSettings: PurchaseSettings | null;
+  savePurchaseSettings: (settings: PurchaseSettings) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -146,16 +181,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem("nc_current_user");
     return stored ? JSON.parse(stored) : null;
   });
-  const [users, setUsers] = useState<User[]>(() => {
-    const stored = localStorage.getItem("nc_users");
-    let parsed: User[] = stored ? JSON.parse(stored) : [];
-    // Seed admin if not present
-    if (!parsed.find((u) => u.id === "admin_001")) {
-      parsed = [ADMIN_SEED, ...parsed];
-      localStorage.setItem("nc_users", JSON.stringify(parsed));
-    }
-    return parsed;
-  });
+  // Local user store is only used for offline caching; backend is source of truth
+  const [users, setUsers] = useState<User[]>([]);
+  const [backendUsers, setBackendUsers] = useState<FriendUser[]>([]);
   const [conversations, setConversations] = useState<Record<string, Message[]>>(
     () => {
       const stored = localStorage.getItem("nc_conversations");
@@ -170,9 +198,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     lat: number;
     lng: number;
   } | null>(null);
+  const [purchaseSettings, setPurchaseSettingsState] =
+    useState<PurchaseSettings | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const backendPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Persist conversations
   const persistConversations = (updated: Record<string, Message[]>) => {
     localStorage.setItem("nc_conversations", JSON.stringify(updated));
   };
@@ -182,7 +212,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (stored) setThemeState(stored as Theme);
   }, []);
 
-  // Apply theme class to body
   useEffect(() => {
     const body = document.body;
     body.classList.remove(
@@ -196,8 +225,81 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("nc_theme", theme);
   }, [theme]);
 
-  // Geolocation tracking
-  // biome-ignore lint/correctness/useExhaustiveDependencies: tracking by id only to avoid loop from location updates
+  // Load purchase settings from backend on mount
+  useEffect(() => {
+    getActor()
+      .then((actor) => actor.getPurchaseSettings())
+      .then((settings) => setPurchaseSettingsState(settings))
+      .catch(() => {});
+  }, []);
+
+  const fetchBackendUsers = async (userId: string) => {
+    try {
+      const actor = await getActor();
+      const allBE = await actor.getAllUsers();
+      const mapped: FriendUser[] = allBE
+        .filter((u) => u.id !== userId && !u.settings?.showInRadius === false)
+        .map((u) => ({
+          id: u.id,
+          username: u.username,
+          displayName: u.displayName,
+          online: u.online,
+          lastSeen: u.lastSeen ? String(u.lastSeen) : undefined,
+          lat: u.location?.lat,
+          lng: u.location?.lng,
+          isBot: false,
+          isAdmin: false,
+        }));
+      // Also update local users list for admin page
+      const localUsers: User[] = allBE.map((u) => ({
+        id: u.id,
+        username: u.username,
+        displayName: u.displayName,
+        password: "",
+        radiusTier: bigintToRadiusTier(u.radiusTier),
+        showOnlineStatus: u.settings.showOnlineStatus,
+        showInRadius: u.settings.showInRadius,
+        notifications: u.settings.notifications,
+        online: u.online,
+        lastSeen: u.lastSeen ? String(u.lastSeen) : undefined,
+        createdAt: Number(u.lastSeen) || Date.now(),
+      }));
+      setUsers(localUsers);
+      setBackendUsers(mapped);
+    } catch {
+      // Silent fail
+    }
+  };
+
+  const refreshFriends = () => {
+    if (currentUser) {
+      fetchBackendUsers(currentUser.id);
+    }
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: poll by id only
+  useEffect(() => {
+    if (!currentUser) {
+      setBackendUsers([]);
+      if (backendPollRef.current !== null) {
+        clearInterval(backendPollRef.current);
+        backendPollRef.current = null;
+      }
+      return;
+    }
+    fetchBackendUsers(currentUser.id);
+    backendPollRef.current = setInterval(() => {
+      fetchBackendUsers(currentUser.id);
+    }, 30000);
+    return () => {
+      if (backendPollRef.current !== null) {
+        clearInterval(backendPollRef.current);
+        backendPollRef.current = null;
+      }
+    };
+  }, [currentUser?.id]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tracking by id only
   useEffect(() => {
     if (!currentUser) {
       if (watchIdRef.current !== null) {
@@ -211,26 +313,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         (pos) => {
           const { latitude, longitude } = pos.coords;
           setUserLocation({ lat: latitude, lng: longitude });
-          // Update user record with location
-          setUsers((prev) => {
-            const updated = prev.map((u) =>
-              u.id === currentUser.id
-                ? { ...u, lat: latitude, lng: longitude }
-                : u,
-            );
-            localStorage.setItem("nc_users", JSON.stringify(updated));
-            return updated;
-          });
           setCurrentUser((prev) => {
             if (!prev) return prev;
             const up = { ...prev, lat: latitude, lng: longitude };
             localStorage.setItem("nc_current_user", JSON.stringify(up));
             return up;
           });
+          // Update backend location (fire-and-forget)
+          getActor()
+            .then((actor) =>
+              actor.updateLocation(currentUser.id, {
+                lat: latitude,
+                lng: longitude,
+              }),
+            )
+            .catch(() => {});
         },
-        () => {
-          // Permission denied or error — silent
-        },
+        () => {},
         { enableHighAccuracy: true, maximumAge: 10000 },
       );
     }
@@ -243,46 +342,94 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setTheme = (t: Theme) => setThemeState(t);
 
-  const login = (username: string, password: string): boolean => {
-    const found = users.find(
-      (u) =>
-        (u.username === username || u.id === username) &&
-        u.password === password,
-    );
-    if (found) {
-      setCurrentUser(found);
-      localStorage.setItem("nc_current_user", JSON.stringify(found));
-      return true;
+  const login = async (
+    username: string,
+    password: string,
+  ): Promise<boolean> => {
+    // Always verify against backend first
+    try {
+      const actor = await getActor();
+      const beUser = await actor.verifyCredentials(username, password);
+      if (beUser) {
+        const localUser: User = {
+          id: beUser.id,
+          username: beUser.username,
+          displayName: beUser.displayName,
+          password,
+          radiusTier: bigintToRadiusTier(beUser.radiusTier),
+          showOnlineStatus: beUser.settings.showOnlineStatus,
+          showInRadius: beUser.settings.showInRadius,
+          notifications: beUser.settings.notifications,
+          online: beUser.online,
+          createdAt: Date.now(),
+        };
+        setCurrentUser(localUser);
+        localStorage.setItem("nc_current_user", JSON.stringify(localUser));
+        actor.setOnlineStatus(localUser.id, true).catch(() => {});
+        return true;
+      }
+    } catch {
+      // Silent fail
     }
     return false;
   };
 
-  const signup = (
+  const signup = async (
     username: string,
     displayName: string,
     password: string,
-  ): boolean => {
-    if (users.find((u) => u.username === username)) return false;
-    const newUser: User = {
-      id: `user_${Date.now()}`,
-      username,
-      displayName,
-      password,
-      radiusTier: "free",
-      showOnlineStatus: true,
-      showInRadius: true,
-      notifications: true,
-      createdAt: Date.now(),
-    };
-    const updated = [...users, newUser];
-    setUsers(updated);
-    localStorage.setItem("nc_users", JSON.stringify(updated));
-    setCurrentUser(newUser);
-    localStorage.setItem("nc_current_user", JSON.stringify(newUser));
-    return true;
+  ): Promise<{ success: true } | { success: false; error: string }> => {
+    try {
+      const actor = await getActor();
+      const newUser = await actor.register({
+        id: `user_${Date.now()}`,
+        username,
+        displayName,
+        passwordHash: password,
+        radiusTier: 0n,
+      });
+      const localUser: User = {
+        id: newUser.id,
+        username: newUser.username,
+        displayName: newUser.displayName,
+        password,
+        radiusTier: bigintToRadiusTier(newUser.radiusTier),
+        showOnlineStatus: newUser.settings.showOnlineStatus,
+        showInRadius: newUser.settings.showInRadius,
+        notifications: newUser.settings.notifications,
+        online: true,
+        createdAt: Date.now(),
+      };
+      setCurrentUser(localUser);
+      localStorage.setItem("nc_current_user", JSON.stringify(localUser));
+      actor.setOnlineStatus(localUser.id, true).catch(() => {});
+      return { success: true };
+    } catch (e) {
+      const raw = extractErrorMessage(e);
+      // Map known backend errors to friendly messages
+      let friendly = raw;
+      if (raw.toLowerCase().includes("username already taken")) {
+        friendly =
+          "That username is already taken. Please choose a different one.";
+      } else if (raw.toLowerCase().includes("user already registered")) {
+        friendly =
+          "This account is already registered. Please sign in instead.";
+      } else if (raw.toLowerCase().includes("unauthorized")) {
+        friendly =
+          "Authentication error. Please refresh the page and try again.";
+      } else if (!raw || raw === "undefined") {
+        friendly = "Something went wrong. Please try again.";
+      }
+      return { success: false, error: friendly };
+    }
   };
 
   const logout = () => {
+    if (currentUser) {
+      getActor()
+        .then((actor) => actor.setOnlineStatus(currentUser.id, false))
+        .catch(() => {});
+    }
     setCurrentUser(null);
     localStorage.removeItem("nc_current_user");
     if (watchIdRef.current !== null) {
@@ -290,6 +437,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       watchIdRef.current = null;
     }
     setUserLocation(null);
+    setBackendUsers([]);
   };
 
   const getConversation = (friendId: string): Message[] => {
@@ -357,10 +505,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteUser = (userId: string) => {
-    if (userId === "admin_001") return;
-    const updated = users.filter((u) => u.id !== userId);
-    setUsers(updated);
-    localStorage.setItem("nc_users", JSON.stringify(updated));
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    getActor()
+      .then((actor) => actor.deleteUser(userId))
+      .catch(() => {});
     if (currentUser?.id === userId) {
       logout();
     }
@@ -371,11 +519,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const updated = { ...currentUser, radiusTier: tier };
     setCurrentUser(updated);
     localStorage.setItem("nc_current_user", JSON.stringify(updated));
-    const updatedUsers = users.map((u) =>
-      u.id === currentUser.id ? updated : u,
-    );
-    setUsers(updatedUsers);
-    localStorage.setItem("nc_users", JSON.stringify(updatedUsers));
   };
 
   const updateSettings = (settings: Partial<User>) => {
@@ -383,16 +526,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const updated = { ...currentUser, ...settings };
     setCurrentUser(updated);
     localStorage.setItem("nc_current_user", JSON.stringify(updated));
-    const updatedUsers = users.map((u) =>
-      u.id === currentUser.id ? updated : u,
-    );
-    setUsers(updatedUsers);
-    localStorage.setItem("nc_users", JSON.stringify(updatedUsers));
+    getActor()
+      .then((actor) =>
+        actor.updateSettings(currentUser.id, {
+          showOnlineStatus: updated.showOnlineStatus,
+          showInRadius: updated.showInRadius,
+          notifications: updated.notifications,
+        }),
+      )
+      .catch(() => {});
+  };
+
+  const savePurchaseSettings = async (settings: PurchaseSettings) => {
+    const actor = await getActor();
+    await actor.setPurchaseSettings(settings);
+    setPurchaseSettingsState(settings);
   };
 
   const radiusLabel = RADIUS_LABELS[currentUser?.radiusTier || "free"];
 
-  // allUsers: all non-current, non-bot users + bot
+  // Backend users filtered: exclude current user and admin users
+  const filteredBackendUsers = backendUsers.filter(
+    (u) => !u.isAdmin && u.id !== currentUser?.id,
+  );
+
+  const friends: FriendUser[] = [...filteredBackendUsers, BOT_USER];
+
   const allUsers: FriendUser[] = [
     ...users
       .filter((u) => u.id !== currentUser?.id && !u.isBot)
@@ -402,33 +561,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           username: u.username,
           displayName: u.displayName,
           online: u.online ?? false,
-          lastSeen: u.lastSeen,
-          isBot: u.isBot,
-          isAdmin: u.isAdmin,
-          lat: u.lat,
-          lng: u.lng,
-        }),
-      ),
-    BOT_USER,
-  ];
-
-  // friends: ALL registered users (with showInRadius) are visible as nearby + bot always
-  // This ensures users who sign up are discoverable without needing explicit friend requests
-  const friends: FriendUser[] = [
-    ...users
-      .filter(
-        (u) =>
-          u.id !== currentUser?.id &&
-          !u.isBot &&
-          !u.isAdmin &&
-          u.showInRadius !== false,
-      )
-      .map(
-        (u): FriendUser => ({
-          id: u.id,
-          username: u.username,
-          displayName: u.displayName,
-          online: u.online ?? true,
           lastSeen: u.lastSeen,
           isBot: u.isBot,
           isAdmin: u.isAdmin,
@@ -462,6 +594,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateSettings,
         deleteUser,
         userLocation,
+        refreshFriends,
+        purchaseSettings,
+        savePurchaseSettings,
       }}
     >
       {children}
