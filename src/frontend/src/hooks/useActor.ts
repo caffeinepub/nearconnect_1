@@ -23,8 +23,7 @@ export function useActor() {
         },
       };
 
-      const actor = await createActorWithConfig(actorOptions);
-      return actor;
+      return await createActorWithConfig(actorOptions);
     },
     staleTime: Number.POSITIVE_INFINITY,
     enabled: true,

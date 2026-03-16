@@ -1,152 +1,50 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import {
   Bell,
-  Check,
-  Crown,
+  Eye,
   LogOut,
   MapPin,
+  Moon,
   Palette,
-  Shield,
+  Sun,
+  TrendingUp,
+  Users,
+  Zap,
 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 import { BottomNav } from "../components/BottomNav";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
-import {
-  RADIUS_LABELS,
-  type RadiusTier,
-  type Theme,
-  useApp,
-} from "../context/AppContext";
+import { RADIUS_LABELS, type RadiusTier, useApp } from "../context/AppContext";
 
 interface SettingsPageProps {
-  onNavigate: (page: "friends" | "search" | "settings") => void;
+  onNavigate: (page: "friends" | "search" | "settings" | "admin") => void;
   onLogout: () => void;
 }
 
-const THEMES: { id: Theme; label: string; desc: string; preview: string }[] = [
-  {
-    id: "liquid-flux",
-    label: "Liquid Flux",
-    desc: "Animated gradient mesh",
-    preview: "linear-gradient(135deg, #0a0a1a, oklch(0.5 0.25 280))",
-  },
-  {
-    id: "dark-minimal",
-    label: "Dark Minimal",
-    desc: "Pure dark, sharp",
-    preview: "linear-gradient(135deg, #0f0f0f, #1a1a1a)",
-  },
-  {
-    id: "light-clean",
-    label: "Light Clean",
-    desc: "Bright & minimal",
-    preview: "linear-gradient(135deg, #f5f5f8, #ffffff)",
-  },
-  {
-    id: "neon-pulse",
-    label: "Neon Pulse",
-    desc: "Electric borders",
-    preview: "linear-gradient(135deg, #050505, oklch(0.15 0.05 140))",
-  },
-];
-
-const RADIUS_TIERS: { id: RadiusTier; price: string; desc: string }[] = [
-  { id: "free", price: "Free", desc: "500m" },
-  { id: "basic", price: "$1.99", desc: "1km" },
-  { id: "standard", price: "$4.99", desc: "5km" },
-  { id: "premium", price: "$9.99", desc: "10km" },
-];
-
 export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
-  const {
-    currentUser,
-    theme,
-    setTheme,
-    updateSettings,
-    purchaseRadius,
-    radiusLabel,
-  } = useApp();
-  const [radiusOpen, setRadiusOpen] = useState(false);
-  const [purchasing, setPurchasing] = useState<RadiusTier | null>(null);
+  const { currentUser, theme, setTheme, updateSettings, purchaseRadius } =
+    useApp();
   const isLight = theme === "light-clean";
-  const textColor = isLight ? "#111" : "white";
-  const subColor = isLight ? "#666" : "rgba(255,255,255,0.45)";
 
-  const handlePurchase = async (tier: RadiusTier) => {
-    if (tier === "free") return;
-    setPurchasing(tier);
-    await new Promise((r) => setTimeout(r, 1200));
-    purchaseRadius(tier);
-    setPurchasing(null);
-    setRadiusOpen(false);
-    toast.success(`Upgraded to ${RADIUS_LABELS[tier]} radius! 🎉`);
-  };
+  if (!currentUser) return null;
 
-  const Section = ({
-    icon: Icon,
-    title,
-    children,
-  }: { icon: React.ElementType; title: string; children: React.ReactNode }) => (
-    <div
-      className="glass-card"
-      style={{ padding: "18px 20px", marginBottom: 12 }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          marginBottom: 16,
-        }}
-      >
-        <Icon size={16} style={{ color: "oklch(0.8 0.15 200)" }} />
-        <h2
-          style={{
-            margin: 0,
-            fontSize: 13,
-            fontWeight: 700,
-            color: "oklch(0.8 0.15 200)",
-            textTransform: "uppercase",
-            letterSpacing: 1,
-          }}
-        >
-          {title}
-        </h2>
-      </div>
-      {children}
-    </div>
-  );
+  const tiers: { tier: RadiusTier; label: string; price: string }[] = [
+    { tier: "free", label: "500m", price: "Free" },
+    { tier: "basic", label: "1km", price: "$0.99" },
+    { tier: "standard", label: "5km", price: "$2.99" },
+    { tier: "premium", label: "10km", price: "$4.99" },
+  ];
 
-  const Row = ({
-    label,
-    children,
-  }: { label: string; children: React.ReactNode }) => (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingBlock: 10,
-        borderTop: "1px solid rgba(255,255,255,0.06)",
-      }}
-    >
-      <span style={{ fontSize: 14, color: textColor }}>{label}</span>
-      {children}
-    </div>
-  );
+  const themes = [
+    { key: "liquid-flux" as const, icon: Zap, label: "Liquid Flux" },
+    { key: "dark-minimal" as const, icon: Moon, label: "Dark" },
+    { key: "light-clean" as const, icon: Sun, label: "Light" },
+    { key: "neon-pulse" as const, icon: Palette, label: "Neon" },
+  ];
 
   return (
     <div
-      style={{ position: "relative", minHeight: "100dvh", paddingBottom: 100 }}
+      style={{ position: "relative", minHeight: "100dvh", paddingBottom: 80 }}
     >
       <LiquidFluxBg />
       <div
@@ -165,7 +63,7 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
               fontFamily: "'Bricolage Grotesque', sans-serif",
               fontSize: 28,
               fontWeight: 700,
-              color: textColor,
+              color: isLight ? "#111" : "white",
               margin: 0,
               letterSpacing: -0.5,
             }}
@@ -174,335 +72,295 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
           </h1>
         </div>
 
-        {/* Account */}
-        <Section icon={Shield} title="Account">
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <div style={{ paddingBlock: 8 }}>
-              <p style={{ margin: 0, fontSize: 12, color: subColor }}>
-                Display Name
-              </p>
+        {/* Profile card */}
+        <div
+          className="glass-card"
+          style={{ padding: "16px", marginBottom: 20 }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: "50%",
+                background:
+                  "linear-gradient(135deg, oklch(0.5 0.25 280), oklch(0.65 0.2 200))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 700,
+                fontSize: 20,
+                color: "white",
+                fontFamily: "'Bricolage Grotesque', sans-serif",
+              }}
+            >
+              {currentUser.displayName[0]}
+            </div>
+            <div>
               <p
                 style={{
                   margin: 0,
-                  fontSize: 15,
                   fontWeight: 600,
-                  color: textColor,
+                  fontSize: 16,
+                  color: isLight ? "#111" : "white",
                 }}
               >
-                {currentUser?.displayName || "—"}
-              </p>
-            </div>
-            <div
-              style={{
-                paddingBlock: 8,
-                borderTop: "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: 12, color: subColor }}>
-                Username
-              </p>
-              <p style={{ margin: 0, fontSize: 15, color: textColor }}>
-                @{currentUser?.username || "—"}
-              </p>
-            </div>
-            <div
-              style={{
-                paddingBlock: 8,
-                borderTop: "1px solid rgba(255,255,255,0.06)",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: 12, color: subColor }}>
-                User ID
+                {currentUser.displayName}
               </p>
               <p
                 style={{
                   margin: 0,
-                  fontSize: 12,
-                  color: subColor,
-                  fontFamily: "monospace",
+                  fontSize: 13,
+                  color: isLight ? "#888" : "rgba(255,255,255,0.4)",
                 }}
               >
-                {currentUser?.id || "—"}
+                @{currentUser.username} · {currentUser.id}
               </p>
             </div>
           </div>
-        </Section>
+        </div>
 
-        {/* Location Radius */}
-        <Section icon={MapPin} title="Location Radius">
+        {/* Preferences */}
+        <div
+          className="glass-card"
+          style={{ padding: "4px 0", marginBottom: 16 }}
+        >
+          {[
+            {
+              icon: Eye,
+              label: "Show Online Status",
+              key: "showOnlineStatus" as const,
+            },
+            {
+              icon: MapPin,
+              label: "Appear in Radius Search",
+              key: "showInRadius" as const,
+            },
+            {
+              icon: Bell,
+              label: "Notifications",
+              key: "notifications" as const,
+            },
+          ].map(({ icon: Icon, label, key }) => (
+            <div
+              key={key}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                padding: "14px 16px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              <Icon
+                size={16}
+                style={{
+                  marginRight: 12,
+                  color: isLight ? "#666" : "rgba(255,255,255,0.5)",
+                }}
+              />
+              <span
+                style={{
+                  flex: 1,
+                  fontSize: 14,
+                  color: isLight ? "#111" : "rgba(255,255,255,0.85)",
+                }}
+              >
+                {label}
+              </span>
+              <Switch
+                data-ocid={`settings.${key}.switch`}
+                checked={currentUser[key]}
+                onCheckedChange={(v) => updateSettings({ [key]: v })}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Theme */}
+        <div className="glass-card" style={{ padding: 16, marginBottom: 16 }}>
+          <p
+            style={{
+              margin: "0 0 12px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: isLight ? "#888" : "rgba(255,255,255,0.4)",
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+            }}
+          >
+            Theme
+          </p>
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
+          >
+            {themes.map(({ key, icon: Icon, label }) => (
+              <button
+                type="button"
+                key={key}
+                data-ocid={`settings.theme.${key}.button`}
+                onClick={() => setTheme(key)}
+                style={{
+                  padding: "12px",
+                  borderRadius: 12,
+                  background:
+                    theme === key
+                      ? "linear-gradient(135deg, oklch(0.5 0.25 280 / 0.3), oklch(0.65 0.2 200 / 0.3))"
+                      : "rgba(255,255,255,0.04)",
+                  border:
+                    theme === key
+                      ? "1px solid oklch(0.65 0.2 200 / 0.5)"
+                      : "1px solid rgba(255,255,255,0.08)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  color: isLight ? "#111" : "white",
+                  fontSize: 13,
+                  fontWeight: theme === key ? 600 : 400,
+                }}
+              >
+                <Icon size={15} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Radius upgrade */}
+        <div className="glass-card" style={{ padding: 16, marginBottom: 16 }}>
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
+              gap: 6,
+              marginBottom: 12,
             }}
           >
-            <div>
-              <p style={{ margin: 0, fontSize: 14, color: textColor }}>
-                Current radius
-              </p>
-              <Badge
-                style={{
-                  marginTop: 4,
-                  background: "rgba(128,200,255,0.15)",
-                  color: "oklch(0.8 0.15 200)",
-                  border: "none",
-                }}
-              >
-                {radiusLabel}
-              </Badge>
-            </div>
-            <Button
-              data-ocid="settings.radius.open_modal_button"
-              onClick={() => setRadiusOpen(true)}
-              size="sm"
+            <TrendingUp
+              size={14}
+              style={{ color: isLight ? "#888" : "rgba(255,255,255,0.4)" }}
+            />
+            <p
               style={{
-                background:
-                  "linear-gradient(135deg, oklch(0.5 0.25 280), oklch(0.65 0.2 200))",
-                color: "white",
-                border: "none",
-                borderRadius: 10,
-                boxShadow: "0 4px 16px oklch(0.65 0.2 200 / 0.3)",
+                margin: 0,
+                fontSize: 13,
+                fontWeight: 600,
+                color: isLight ? "#888" : "rgba(255,255,255,0.4)",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
               }}
             >
-              <Crown size={13} style={{ marginRight: 5 }} />
-              Upgrade
-            </Button>
+              Radius Tier
+            </p>
           </div>
-        </Section>
-
-        {/* Themes */}
-        <Section icon={Palette} title="Theme">
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}
-          >
-            {THEMES.map((t) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {tiers.map(({ tier, label, price }) => (
               <button
                 type="button"
-                key={t.id}
-                data-ocid={`settings.theme.${t.id}.toggle`}
-                onClick={() => setTheme(t.id)}
+                key={tier}
+                data-ocid={`settings.radius.${tier}.button`}
+                onClick={() => purchaseRadius(tier)}
                 style={{
-                  padding: "12px",
-                  borderRadius: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  background:
+                    currentUser.radiusTier === tier
+                      ? "linear-gradient(135deg, oklch(0.5 0.25 280 / 0.3), oklch(0.65 0.2 200 / 0.3))"
+                      : "rgba(255,255,255,0.04)",
                   border:
-                    theme === t.id
-                      ? "2px solid oklch(0.8 0.15 200)"
-                      : "2px solid transparent",
-                  background: t.preview,
+                    currentUser.radiusTier === tier
+                      ? "1px solid oklch(0.65 0.2 200 / 0.5)"
+                      : "1px solid rgba(255,255,255,0.08)",
                   cursor: "pointer",
-                  textAlign: "left",
-                  transition: "border-color 0.2s",
-                  position: "relative",
-                  overflow: "hidden",
+                  color: isLight ? "#111" : "white",
                 }}
               >
-                <p
+                <MapPin
+                  size={14}
                   style={{
-                    margin: 0,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: t.id === "light-clean" ? "#333" : "white",
-                  }}
-                >
-                  {t.label}
-                </p>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 10,
+                    marginRight: 10,
                     color:
-                      t.id === "light-clean" ? "#777" : "rgba(255,255,255,0.5)",
+                      currentUser.radiusTier === tier
+                        ? "oklch(0.8 0.15 200)"
+                        : isLight
+                          ? "#888"
+                          : "rgba(255,255,255,0.4)",
+                  }}
+                />
+                <span style={{ flex: 1, fontSize: 14, textAlign: "left" }}>
+                  {label} radius
+                </span>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color:
+                      currentUser.radiusTier === tier
+                        ? "oklch(0.8 0.15 200)"
+                        : isLight
+                          ? "#888"
+                          : "rgba(255,255,255,0.4)",
                   }}
                 >
-                  {t.desc}
-                </p>
-                {theme === t.id && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 8,
-                      right: 8,
-                      background: "oklch(0.8 0.15 200)",
-                      borderRadius: "50%",
-                      width: 16,
-                      height: 16,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Check size={10} style={{ color: "#000" }} />
-                  </div>
-                )}
+                  {price}
+                </span>
               </button>
             ))}
           </div>
-        </Section>
+        </div>
 
-        {/* Notifications */}
-        <Section icon={Bell} title="Notifications">
-          <Row label="Push notifications">
-            <Switch
-              data-ocid="settings.notifications.switch"
-              checked={currentUser?.notifications ?? true}
-              onCheckedChange={(v) => updateSettings({ notifications: v })}
-            />
-          </Row>
-        </Section>
-
-        {/* Privacy */}
-        <Section icon={Shield} title="Privacy">
-          <Row label="Show online status">
-            <Switch
-              data-ocid="settings.privacy.online.switch"
-              checked={currentUser?.showOnlineStatus ?? true}
-              onCheckedChange={(v) => updateSettings({ showOnlineStatus: v })}
-            />
-          </Row>
-          <Row label="Show in radius search">
-            <Switch
-              data-ocid="settings.privacy.radius.switch"
-              checked={currentUser?.showInRadius ?? true}
-              onCheckedChange={(v) => updateSettings({ showInRadius: v })}
-            />
-          </Row>
-        </Section>
+        {/* Friends count */}
+        <div
+          className="glass-card"
+          style={{
+            padding: "14px 16px",
+            marginBottom: 16,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <Users
+            size={16}
+            style={{ color: isLight ? "#666" : "rgba(255,255,255,0.5)" }}
+          />
+          <span
+            style={{
+              flex: 1,
+              fontSize: 14,
+              color: isLight ? "#111" : "rgba(255,255,255,0.85)",
+            }}
+          >
+            Current radius: {RADIUS_LABELS[currentUser.radiusTier]}
+          </span>
+        </div>
 
         {/* Logout */}
         <Button
           data-ocid="settings.logout.button"
           onClick={onLogout}
-          variant="destructive"
           style={{
             width: "100%",
-            height: 48,
             borderRadius: 14,
-            fontSize: 15,
-            marginBottom: 16,
+            background: "rgba(255,80,80,0.12)",
+            border: "1px solid rgba(255,80,80,0.25)",
+            color: "oklch(0.7 0.2 30)",
+            height: 48,
+            fontSize: 14,
+            fontWeight: 600,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
           }}
         >
-          <LogOut size={16} style={{ marginRight: 8 }} />
+          <LogOut size={16} />
           Sign Out
         </Button>
       </div>
-
-      {/* Radius Purchase Modal */}
-      <Dialog open={radiusOpen} onOpenChange={setRadiusOpen}>
-        <DialogContent
-          data-ocid="settings.radius.dialog"
-          style={{
-            background: "oklch(0.12 0.03 280)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 24,
-            color: "white",
-            maxWidth: 380,
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle
-              style={{
-                color: "white",
-                fontFamily: "'Bricolage Grotesque', sans-serif",
-                fontSize: 20,
-              }}
-            >
-              Expand Your Radius
-            </DialogTitle>
-          </DialogHeader>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-              marginTop: 8,
-            }}
-          >
-            {RADIUS_TIERS.map((tier) => {
-              const isCurrent = currentUser?.radiusTier === tier.id;
-              const isPurchasing = purchasing === tier.id;
-              return (
-                <div
-                  key={tier.id}
-                  className="glass-card"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "14px 16px",
-                    border: isCurrent
-                      ? "1px solid oklch(0.8 0.15 200)"
-                      : undefined,
-                  }}
-                >
-                  <div>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontWeight: 600,
-                        fontSize: 15,
-                        color: "white",
-                      }}
-                    >
-                      {tier.desc} radius
-                    </p>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 12,
-                        color: "rgba(255,255,255,0.45)",
-                      }}
-                    >
-                      {tier.price}
-                    </p>
-                  </div>
-                  {isCurrent ? (
-                    <Badge
-                      style={{
-                        background: "rgba(128,200,255,0.15)",
-                        color: "oklch(0.8 0.15 200)",
-                        border: "none",
-                      }}
-                    >
-                      Current
-                    </Badge>
-                  ) : (
-                    <Button
-                      data-ocid={`settings.radius.${tier.id}.button`}
-                      onClick={() => handlePurchase(tier.id)}
-                      disabled={!!purchasing}
-                      size="sm"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, oklch(0.5 0.25 280), oklch(0.65 0.2 200))",
-                        color: "white",
-                        border: "none",
-                        borderRadius: 10,
-                        opacity: purchasing && !isPurchasing ? 0.5 : 1,
-                      }}
-                    >
-                      {isPurchasing ? "Processing..." : "Purchase"}
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <Button
-            data-ocid="settings.radius.cancel_button"
-            onClick={() => setRadiusOpen(false)}
-            variant="ghost"
-            style={{
-              marginTop: 4,
-              color: "rgba(255,255,255,0.4)",
-              width: "100%",
-            }}
-          >
-            Cancel
-          </Button>
-        </DialogContent>
-      </Dialog>
-
       <BottomNav active="settings" onNavigate={onNavigate} />
     </div>
   );

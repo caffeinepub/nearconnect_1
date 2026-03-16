@@ -1,17 +1,28 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, Clock, Search, UserPlus } from "lucide-react";
+import { Check, Clock, MapPin, Search, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { BottomNav } from "../components/BottomNav";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
-import { useApp } from "../context/AppContext";
+import {
+  formatDistance,
+  getDistanceMeters,
+  useApp,
+} from "../context/AppContext";
 
 interface SearchPageProps {
-  onNavigate: (page: "friends" | "search" | "settings") => void;
+  onNavigate: (page: "friends" | "search" | "settings" | "admin") => void;
 }
 
 export function SearchPage({ onNavigate }: SearchPageProps) {
-  const { allUsers, friendRequests, sendFriendRequest, theme } = useApp();
+  const {
+    allUsers,
+    friendRequests,
+    sendFriendRequest,
+    theme,
+    userLocation,
+    currentUser,
+  } = useApp();
   const [query, setQuery] = useState("");
   const isLight = theme === "light-clean";
 
@@ -26,7 +37,10 @@ export function SearchPage({ onNavigate }: SearchPageProps) {
       : allUsers;
 
   const getRequestStatus = (toId: string) => {
-    const req = friendRequests.find((r) => r.toId === toId);
+    if (!currentUser) return null;
+    const req = friendRequests.find(
+      (r) => r.fromId === currentUser.id && r.toId === toId,
+    );
     return req?.status || null;
   };
 
@@ -105,6 +119,15 @@ export function SearchPage({ onNavigate }: SearchPageProps) {
           ) : (
             results.map((user, i) => {
               const status = getRequestStatus(user.id);
+              const dist =
+                userLocation && user.lat && user.lng
+                  ? getDistanceMeters(
+                      userLocation.lat,
+                      userLocation.lng,
+                      user.lat,
+                      user.lng,
+                    )
+                  : null;
               return (
                 <div
                   key={user.id}
@@ -122,7 +145,9 @@ export function SearchPage({ onNavigate }: SearchPageProps) {
                       width: 46,
                       height: 46,
                       borderRadius: "50%",
-                      background: `linear-gradient(135deg, oklch(0.5 0.25 ${200 + i * 35}), oklch(0.65 0.2 ${250 + i * 35}))`,
+                      background: user.isBot
+                        ? "linear-gradient(135deg, oklch(0.45 0.2 140), oklch(0.6 0.15 180))"
+                        : `linear-gradient(135deg, oklch(0.5 0.25 ${200 + i * 35}), oklch(0.65 0.2 ${250 + i * 35}))`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -145,54 +170,83 @@ export function SearchPage({ onNavigate }: SearchPageProps) {
                     >
                       {user.displayName}
                     </p>
-                    <p
+                    <div
                       style={{
-                        margin: 0,
-                        fontSize: 12,
-                        color: "rgba(255,255,255,0.4)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        flexWrap: "wrap",
                       }}
                     >
-                      @{user.username} · {user.id}
-                    </p>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 12,
+                          color: "rgba(255,255,255,0.4)",
+                        }}
+                      >
+                        @{user.username}
+                      </p>
+                      {dist !== null && (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: "oklch(0.75 0.18 160)",
+                            background: "oklch(0.75 0.18 160 / 0.12)",
+                            border: "1px solid oklch(0.75 0.18 160 / 0.25)",
+                            borderRadius: 6,
+                            padding: "1px 6px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 3,
+                          }}
+                        >
+                          <MapPin size={8} />
+                          {formatDistance(dist)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <Button
-                    data-ocid={`search.item.${i + 1}.button`}
-                    onClick={() => !status && sendFriendRequest(user.id)}
-                    disabled={!!status}
-                    size="sm"
-                    style={{
-                      borderRadius: 10,
-                      background:
-                        status === "pending"
-                          ? "rgba(255,255,255,0.07)"
-                          : "linear-gradient(135deg, oklch(0.5 0.25 280), oklch(0.65 0.2 200))",
-                      border:
-                        status === "pending"
-                          ? "1px solid rgba(255,255,255,0.15)"
-                          : "none",
-                      color: "white",
-                      fontSize: 12,
-                      padding: "6px 14px",
-                      minWidth: 80,
-                    }}
-                  >
-                    {status === "pending" ? (
-                      <>
-                        <Clock size={12} style={{ marginRight: 4 }} />
-                        Pending
-                      </>
-                    ) : status === "accepted" ? (
-                      <>
-                        <Check size={12} style={{ marginRight: 4 }} />
-                        Friends
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus size={12} style={{ marginRight: 4 }} />
-                        Add
-                      </>
-                    )}
-                  </Button>
+                  {!user.isBot && (
+                    <Button
+                      data-ocid={`search.item.${i + 1}.button`}
+                      onClick={() => !status && sendFriendRequest(user.id)}
+                      disabled={!!status}
+                      size="sm"
+                      style={{
+                        borderRadius: 10,
+                        background:
+                          status === "pending"
+                            ? "rgba(255,255,255,0.07)"
+                            : "linear-gradient(135deg, oklch(0.5 0.25 280), oklch(0.65 0.2 200))",
+                        border:
+                          status === "pending"
+                            ? "1px solid rgba(255,255,255,0.15)"
+                            : "none",
+                        color: "white",
+                        fontSize: 12,
+                        padding: "6px 14px",
+                        minWidth: 80,
+                      }}
+                    >
+                      {status === "pending" ? (
+                        <>
+                          <Clock size={12} style={{ marginRight: 4 }} />
+                          Pending
+                        </>
+                      ) : status === "accepted" ? (
+                        <>
+                          <Check size={12} style={{ marginRight: 4 }} />
+                          Friends
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus size={12} style={{ marginRight: 4 }} />
+                          Add
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               );
             })

@@ -3,6 +3,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -23,6 +24,13 @@ export interface User {
   showOnlineStatus: boolean;
   showInRadius: boolean;
   notifications: boolean;
+  isAdmin?: boolean;
+  isBot?: boolean;
+  lat?: number;
+  lng?: number;
+  online?: boolean;
+  lastSeen?: string;
+  createdAt?: number;
 }
 
 export interface FriendUser {
@@ -31,6 +39,10 @@ export interface FriendUser {
   displayName: string;
   online: boolean;
   lastSeen?: string;
+  isBot?: boolean;
+  isAdmin?: boolean;
+  lat?: number;
+  lng?: number;
 }
 
 export interface Message {
@@ -59,149 +71,49 @@ const RADIUS_LABELS: Record<RadiusTier, string> = {
   premium: "10km",
 };
 
-const MOCK_USERS: FriendUser[] = [
-  { id: "u1", username: "alex_nova", displayName: "Alex Nova", online: true },
-  {
-    id: "u2",
-    username: "maya_flow",
-    displayName: "Maya Flow",
-    online: false,
-    lastSeen: "2 hours ago",
-  },
-  { id: "u3", username: "zara_x", displayName: "Zara X", online: true },
-  {
-    id: "u4",
-    username: "kai_storm",
-    displayName: "Kai Storm",
-    online: false,
-    lastSeen: "Yesterday",
-  },
-  { id: "u5", username: "luna_dream", displayName: "Luna Dream", online: true },
-  {
-    id: "u6",
-    username: "rex_prime",
-    displayName: "Rex Prime",
-    online: false,
-    lastSeen: "3 hours ago",
-  },
-];
-
-const MOCK_CONVERSATIONS: Record<string, Message[]> = {
-  u1: [
-    {
-      id: "m1",
-      senderId: "u1",
-      text: "Hey! Are you nearby right now?",
-      timestamp: Date.now() - 3600000,
-    },
-    {
-      id: "m2",
-      senderId: "me",
-      text: "Yeah I'm at the park! Come join 🌿",
-      timestamp: Date.now() - 3500000,
-    },
-    {
-      id: "m3",
-      senderId: "u1",
-      text: "On my way! ETA 5 mins",
-      timestamp: Date.now() - 3400000,
-    },
-    {
-      id: "m4",
-      senderId: "me",
-      text: "Perfect, I'll grab us some coffee ☕",
-      timestamp: Date.now() - 3300000,
-    },
-    {
-      id: "m5",
-      senderId: "u1",
-      text: "You're the best 🙌",
-      timestamp: Date.now() - 3200000,
-    },
-    {
-      id: "m6",
-      senderId: "u1",
-      text: "Just arrived, where exactly are you?",
-      timestamp: Date.now() - 300000,
-    },
-  ],
-  u2: [
-    {
-      id: "m1",
-      senderId: "u2",
-      text: "Did you see the new spot on 5th?",
-      timestamp: Date.now() - 86400000,
-    },
-    {
-      id: "m2",
-      senderId: "me",
-      text: "Not yet! Is it good?",
-      timestamp: Date.now() - 86000000,
-    },
-    {
-      id: "m3",
-      senderId: "u2",
-      text: "Amazing rooftop views, must visit!",
-      timestamp: Date.now() - 85000000,
-    },
-    {
-      id: "m4",
-      senderId: "me",
-      text: "Let's go this weekend? 🏙️",
-      timestamp: Date.now() - 84000000,
-    },
-    {
-      id: "m5",
-      senderId: "u2",
-      text: "100%! Saturday works for me",
-      timestamp: Date.now() - 83000000,
-    },
-  ],
-  u3: [
-    {
-      id: "m1",
-      senderId: "me",
-      text: "Hey Zara, you near the city center?",
-      timestamp: Date.now() - 7200000,
-    },
-    {
-      id: "m2",
-      senderId: "u3",
-      text: "Yeah, just grabbed food from that new ramen place",
-      timestamp: Date.now() - 7100000,
-    },
-    {
-      id: "m3",
-      senderId: "me",
-      text: "How was it?? I've been meaning to try!",
-      timestamp: Date.now() - 7000000,
-    },
-    {
-      id: "m4",
-      senderId: "u3",
-      text: "Absolutely 🔥 the spicy miso is unreal",
-      timestamp: Date.now() - 6900000,
-    },
-    {
-      id: "m5",
-      senderId: "me",
-      text: "Going tomorrow for sure 😍",
-      timestamp: Date.now() - 6800000,
-    },
-    {
-      id: "m6",
-      senderId: "u3",
-      text: "I'll join you if you're nearby!",
-      timestamp: Date.now() - 6700000,
-    },
-    {
-      id: "m7",
-      senderId: "me",
-      text: "Deal!",
-      timestamp: Date.now() - 6600000,
-    },
-  ],
+const BOT_USER: FriendUser = {
+  id: "bot_nearconnect",
+  username: "nearbot",
+  displayName: "NearBot 🤖",
+  online: true,
+  isBot: true,
 };
+
+const ADMIN_SEED: User = {
+  id: "admin_001",
+  username: "admin",
+  displayName: "Admin",
+  password: "admin123",
+  radiusTier: "free",
+  showOnlineStatus: true,
+  showInRadius: false,
+  notifications: true,
+  isAdmin: true,
+  createdAt: Date.now(),
+};
+
+export function getDistanceMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export function formatDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters)}m away`;
+  return `${(meters / 1000).toFixed(1)}km away`;
+}
 
 interface AppContextValue {
   theme: Theme;
@@ -214,11 +126,16 @@ interface AppContextValue {
   allUsers: FriendUser[];
   getConversation: (friendId: string) => Message[];
   sendMessage: (friendId: string, text: string, replyTo?: string) => void;
+  receiveMessage: (friendId: string, text: string) => void;
   friendRequests: FriendRequest[];
   sendFriendRequest: (toId: string) => void;
+  acceptFriendRequest: (fromId: string) => void;
   radiusLabel: string;
   purchaseRadius: (tier: RadiusTier) => void;
   updateSettings: (settings: Partial<User>) => void;
+  deleteUser: (userId: string) => void;
+  userLocation: { lat: number; lng: number } | null;
+  allRealUsers: User[];
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -231,12 +148,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
   });
   const [users, setUsers] = useState<User[]>(() => {
     const stored = localStorage.getItem("nc_users");
+    let parsed: User[] = stored ? JSON.parse(stored) : [];
+    // Seed admin if not present
+    if (!parsed.find((u) => u.id === "admin_001")) {
+      parsed = [ADMIN_SEED, ...parsed];
+      localStorage.setItem("nc_users", JSON.stringify(parsed));
+    }
+    return parsed;
+  });
+  const [conversations, setConversations] = useState<Record<string, Message[]>>(
+    () => {
+      const stored = localStorage.getItem("nc_conversations");
+      return stored ? JSON.parse(stored) : {};
+    },
+  );
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(() => {
+    const stored = localStorage.getItem("nc_friend_requests");
     return stored ? JSON.parse(stored) : [];
   });
-  const [friends] = useState<FriendUser[]>(MOCK_USERS.slice(0, 3));
-  const [conversations, setConversations] =
-    useState<Record<string, Message[]>>(MOCK_CONVERSATIONS);
-  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [friendships, setFriendships] = useState<string[]>(() => {
+    const stored = localStorage.getItem("nc_friendships");
+    return stored ? JSON.parse(stored) : [];
+  });
+  const [userLocation, setUserLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+
+  // Persist conversations
+  const persistConversations = (updated: Record<string, Message[]>) => {
+    localStorage.setItem("nc_conversations", JSON.stringify(updated));
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem("nc_theme");
@@ -256,6 +199,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
     else if (theme === "neon-pulse") body.classList.add("theme-neon-pulse");
     localStorage.setItem("nc_theme", theme);
   }, [theme]);
+
+  // Geolocation tracking
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tracking by id only to avoid loop from location updates
+  useEffect(() => {
+    if (!currentUser) {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      return;
+    }
+    if ("geolocation" in navigator) {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setUserLocation({ lat: latitude, lng: longitude });
+          // Update user record with location
+          setUsers((prev) => {
+            const updated = prev.map((u) =>
+              u.id === currentUser.id
+                ? { ...u, lat: latitude, lng: longitude }
+                : u,
+            );
+            localStorage.setItem("nc_users", JSON.stringify(updated));
+            return updated;
+          });
+          setCurrentUser((prev) => {
+            if (!prev) return prev;
+            const up = { ...prev, lat: latitude, lng: longitude };
+            localStorage.setItem("nc_current_user", JSON.stringify(up));
+            return up;
+          });
+        },
+        () => {
+          // Permission denied or error — silent
+        },
+        { enableHighAccuracy: true, maximumAge: 10000 },
+      );
+    }
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, [currentUser?.id]);
 
   const setTheme = (t: Theme) => setThemeState(t);
 
@@ -288,6 +276,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       showOnlineStatus: true,
       showInRadius: true,
       notifications: true,
+      createdAt: Date.now(),
     };
     const updated = [...users, newUser];
     setUsers(updated);
@@ -300,6 +289,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem("nc_current_user");
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setUserLocation(null);
   };
 
   const getConversation = (friendId: string): Message[] => {
@@ -314,17 +308,69 @@ export function AppProvider({ children }: { children: ReactNode }) {
       timestamp: Date.now(),
       replyTo,
     };
-    setConversations((prev) => ({
-      ...prev,
-      [friendId]: [...(prev[friendId] || []), msg],
-    }));
+    setConversations((prev) => {
+      const updated = {
+        ...prev,
+        [friendId]: [...(prev[friendId] || []), msg],
+      };
+      persistConversations(updated);
+      return updated;
+    });
+  };
+
+  const receiveMessage = (friendId: string, text: string) => {
+    const msg: Message = {
+      id: `bot_${Date.now()}`,
+      senderId: friendId,
+      text,
+      timestamp: Date.now(),
+    };
+    setConversations((prev) => {
+      const updated = {
+        ...prev,
+        [friendId]: [...(prev[friendId] || []), msg],
+      };
+      persistConversations(updated);
+      return updated;
+    });
   };
 
   const sendFriendRequest = (toId: string) => {
-    setFriendRequests((prev) => [
-      ...prev,
-      { fromId: "me", toId, status: "pending" },
-    ]);
+    if (!currentUser) return;
+    const existing = friendRequests.find(
+      (r) => r.fromId === currentUser.id && r.toId === toId,
+    );
+    if (existing) return;
+    const updated = [
+      ...friendRequests,
+      { fromId: currentUser.id, toId, status: "pending" as const },
+    ];
+    setFriendRequests(updated);
+    localStorage.setItem("nc_friend_requests", JSON.stringify(updated));
+  };
+
+  const acceptFriendRequest = (fromId: string) => {
+    if (!currentUser) return;
+    const updatedReqs = friendRequests.map((r) =>
+      r.fromId === fromId && r.toId === currentUser.id
+        ? { ...r, status: "accepted" as const }
+        : r,
+    );
+    setFriendRequests(updatedReqs);
+    localStorage.setItem("nc_friend_requests", JSON.stringify(updatedReqs));
+    const updatedFriendships = [...new Set([...friendships, fromId])];
+    setFriendships(updatedFriendships);
+    localStorage.setItem("nc_friendships", JSON.stringify(updatedFriendships));
+  };
+
+  const deleteUser = (userId: string) => {
+    if (userId === "admin_001") return;
+    const updated = users.filter((u) => u.id !== userId);
+    setUsers(updated);
+    localStorage.setItem("nc_users", JSON.stringify(updated));
+    if (currentUser?.id === userId) {
+      logout();
+    }
   };
 
   const purchaseRadius = (tier: RadiusTier) => {
@@ -353,6 +399,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const radiusLabel = RADIUS_LABELS[currentUser?.radiusTier || "free"];
 
+  // Compute allUsers: real users (excluding current) + bot
+  const allUsers: FriendUser[] = [
+    ...users
+      .filter((u) => u.id !== currentUser?.id && !u.isBot)
+      .map(
+        (u): FriendUser => ({
+          id: u.id,
+          username: u.username,
+          displayName: u.displayName,
+          online: u.online ?? false,
+          lastSeen: u.lastSeen,
+          isBot: u.isBot,
+          isAdmin: u.isAdmin,
+          lat: u.lat,
+          lng: u.lng,
+        }),
+      ),
+    BOT_USER,
+  ];
+
+  // Compute friends: accepted friendships + bot always
+  const friends: FriendUser[] = [
+    ...users
+      .filter(
+        (u) =>
+          u.id !== currentUser?.id && !u.isBot && friendships.includes(u.id),
+      )
+      .map(
+        (u): FriendUser => ({
+          id: u.id,
+          username: u.username,
+          displayName: u.displayName,
+          online: u.online ?? false,
+          lastSeen: u.lastSeen,
+          isBot: u.isBot,
+          isAdmin: u.isAdmin,
+          lat: u.lat,
+          lng: u.lng,
+        }),
+      ),
+    BOT_USER,
+  ];
+
   return (
     <AppContext.Provider
       value={{
@@ -363,14 +452,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         signup,
         logout,
         friends,
-        allUsers: MOCK_USERS,
+        allUsers,
+        allRealUsers: users,
         getConversation,
         sendMessage,
+        receiveMessage,
         friendRequests,
         sendFriendRequest,
+        acceptFriendRequest,
         radiusLabel,
         purchaseRadius,
         updateSettings,
+        deleteUser,
+        userLocation,
       }}
     >
       {children}

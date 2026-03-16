@@ -1,14 +1,26 @@
-import { Search, Settings, Users } from "lucide-react";
+import { Search, Settings, Shield, Users } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
+type NavPage = "friends" | "search" | "settings" | "admin";
+
 interface BottomNavProps {
-  active: "friends" | "search" | "settings";
-  onNavigate: (page: "friends" | "search" | "settings") => void;
+  active: NavPage;
+  onNavigate: (page: NavPage) => void;
 }
 
 export function BottomNav({ active, onNavigate }: BottomNavProps) {
-  const { theme } = useApp();
+  const { theme, currentUser } = useApp();
   const isLight = theme === "light-clean";
+  const isAdmin = currentUser?.isAdmin;
+
+  const tabs = [
+    { key: "friends" as NavPage, icon: Users, label: "Friends" },
+    { key: "search" as NavPage, icon: Search, label: "Search" },
+    { key: "settings" as NavPage, icon: Settings, label: "Settings" },
+    ...(isAdmin
+      ? [{ key: "admin" as NavPage, icon: Shield, label: "Admin" }]
+      : []),
+  ];
 
   return (
     <nav
@@ -29,13 +41,7 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
         borderBottom: "none",
       }}
     >
-      {(
-        [
-          { key: "friends", icon: Users, label: "Friends" },
-          { key: "search", icon: Search, label: "Search" },
-          { key: "settings", icon: Settings, label: "Settings" },
-        ] as const
-      ).map(({ key, icon: Icon, label }) => (
+      {tabs.map(({ key, icon: Icon, label }) => (
         <button
           type="button"
           key={key}
@@ -49,7 +55,7 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
             background: "none",
             border: "none",
             cursor: "pointer",
-            padding: "4px 24px",
+            padding: "4px 20px",
             transition: "all 0.2s",
           }}
         >
@@ -58,7 +64,9 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
             style={{
               color:
                 active === key
-                  ? "oklch(0.8 0.15 200)"
+                  ? key === "admin"
+                    ? "oklch(0.75 0.2 50)"
+                    : "oklch(0.8 0.15 200)"
                   : isLight
                     ? "#888"
                     : "rgba(255,255,255,0.4)",
@@ -71,7 +79,9 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
               fontWeight: active === key ? 600 : 400,
               color:
                 active === key
-                  ? "oklch(0.8 0.15 200)"
+                  ? key === "admin"
+                    ? "oklch(0.75 0.2 50)"
+                    : "oklch(0.8 0.15 200)"
                   : isLight
                     ? "#888"
                     : "rgba(255,255,255,0.4)",

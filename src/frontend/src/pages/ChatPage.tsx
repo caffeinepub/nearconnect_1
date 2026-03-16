@@ -33,9 +33,47 @@ function TypingIndicator() {
   );
 }
 
+function getBotReply(text: string): string {
+  const lower = text.toLowerCase();
+  if (/\b(hi|hello|hey)\b/.test(lower)) {
+    return "Hey there! 👋 I'm NearBot, your NearConnect assistant! How can I help you today?";
+  }
+  if (lower.includes("help")) {
+    return "I can help you find nearby friends, manage your profile, or answer questions about NearConnect! What do you need?";
+  }
+  if (lower.includes("how") && lower.includes("work")) {
+    return "NearConnect uses your location to show you friends within your selected radius. Upgrade your radius tier to find more people!";
+  }
+  if (lower.includes("radius") || lower.includes("upgrade")) {
+    return "Your current radius determines how far away friends appear. Go to Settings > Upgrade Radius to expand it up to 10km!";
+  }
+  if (
+    (lower.includes("friend") && lower.includes("add")) ||
+    (lower.includes("how") && lower.includes("find"))
+  ) {
+    return "Go to the Search tab to find people by username or ID, then tap Add to send them a friend request!";
+  }
+  if (lower.includes("location") || lower.includes("permission")) {
+    return "Please allow location access so NearConnect can show you nearby friends in real time!";
+  }
+  if (lower.includes("admin")) {
+    return "The admin portal is only accessible to administrators. If you need help, contact support!";
+  }
+  const defaults = [
+    "Got it! 👍",
+    "That's interesting! Tell me more.",
+    "I'm here if you need anything!",
+    "Try exploring the app — there's a lot to discover!",
+    "Feel free to ask me anything about NearConnect!",
+  ];
+  return defaults[Math.floor(Math.random() * defaults.length)];
+}
+
 export function ChatPage({ friendId, onBack }: ChatPageProps) {
-  const { friends, getConversation, sendMessage, theme } = useApp();
+  const { friends, getConversation, sendMessage, receiveMessage, theme } =
+    useApp();
   const friend = friends.find((f) => f.id === friendId);
+  const isBot = friendId === "bot_nearconnect";
   const [messages, setMessages] = useState<Message[]>(() =>
     getConversation(friendId),
   );
@@ -53,6 +91,28 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messagesLen, isTyping]);
+
+  const handleBotReply = useCallback(
+    (userText: string) => {
+      setIsTyping(true);
+      const delay = 1000 + Math.random() * 500;
+      setTimeout(() => {
+        setIsTyping(false);
+        const replyText = getBotReply(userText);
+        receiveMessage(friendId, replyText);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `bot_${Date.now()}`,
+            senderId: friendId,
+            text: replyText,
+            timestamp: Date.now(),
+          },
+        ]);
+      }, delay);
+    },
+    [friendId, receiveMessage],
+  );
 
   const simulateFriendTyping = useCallback(
     (responseText: string) => {
@@ -95,18 +155,30 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
     setSendPulse(true);
     setTimeout(() => setSendPulse(false), 400);
 
-    const replies = [
-      "Sounds great! 👌",
-      "Yeah, totally agree!",
-      "Let me check and get back to you 🤔",
-      "That's awesome! 🔥",
-      "Sure thing!",
-      "On my way! 🚀",
-      "Haha yes exactly 😄",
-    ];
-    const reply = replies[Math.floor(Math.random() * replies.length)];
-    setTimeout(() => simulateFriendTyping(reply), 800 + Math.random() * 1200);
-  }, [input, replyTo, friendId, sendMessage, simulateFriendTyping]);
+    if (isBot) {
+      handleBotReply(text);
+    } else {
+      const replies = [
+        "Sounds great! 👌",
+        "Yeah, totally agree!",
+        "Let me check and get back to you 🤔",
+        "That's awesome! 🔥",
+        "Sure thing!",
+        "On my way! 🚀",
+        "Haha yes exactly 😄",
+      ];
+      const reply = replies[Math.floor(Math.random() * replies.length)];
+      setTimeout(() => simulateFriendTyping(reply), 800 + Math.random() * 1200);
+    }
+  }, [
+    input,
+    replyTo,
+    friendId,
+    sendMessage,
+    isBot,
+    handleBotReply,
+    simulateFriendTyping,
+  ]);
 
   const handleTouchStart = (e: React.TouchEvent, _msg: Message) => {
     swipeStartX.current = e.touches[0].clientX;
@@ -167,8 +239,9 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
               width: 40,
               height: 40,
               borderRadius: "50%",
-              background:
-                "linear-gradient(135deg, oklch(0.5 0.25 240), oklch(0.65 0.2 200))",
+              background: isBot
+                ? "linear-gradient(135deg, oklch(0.45 0.2 140), oklch(0.6 0.15 180))"
+                : "linear-gradient(135deg, oklch(0.5 0.25 240), oklch(0.65 0.2 200))",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -214,9 +287,11 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
           >
             {isTyping
               ? "typing..."
-              : friend?.online
-                ? "Online"
-                : friend?.lastSeen || "Offline"}
+              : isBot
+                ? "NearConnect Bot · Always Online"
+                : friend?.online
+                  ? "Online"
+                  : friend?.lastSeen || "Offline"}
           </p>
         </div>
       </div>
@@ -390,7 +465,7 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder="Message..."
+          placeholder={isBot ? "Ask NearBot anything..." : "Message..."}
           style={{
             flex: 1,
             background: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.07)",
