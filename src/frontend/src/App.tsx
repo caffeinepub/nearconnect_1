@@ -9,13 +9,16 @@ import { FriendsPage } from "./pages/FriendsPage";
 import { SearchPage } from "./pages/SearchPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
-const ADMIN_URL_PASSWORD = "nc_admin_2025";
+const ADMIN_PASSWORD = "Qwerty12x";
 
 type Page = "auth" | "friends" | "search" | "chat" | "settings" | "admin";
 
-function checkAdminUrl(): boolean {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("admin") === ADMIN_URL_PASSWORD;
+function isAdminPath(): boolean {
+  return window.location.pathname.includes("adminproz");
+}
+
+function hasAdminSession(): boolean {
+  return sessionStorage.getItem("nc_admin_access") === "granted";
 }
 
 function AdminGate() {
@@ -24,10 +27,8 @@ function AdminGate() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (entered === ADMIN_URL_PASSWORD) {
-      const url = new URL(window.location.href);
-      url.searchParams.set("admin", ADMIN_URL_PASSWORD);
-      window.history.replaceState({}, "", url.toString());
+    if (entered === ADMIN_PASSWORD) {
+      sessionStorage.setItem("nc_admin_access", "granted");
       window.location.reload();
     } else {
       setError(true);
@@ -212,24 +213,16 @@ function AppInner() {
 }
 
 export default function App() {
-  const [isAdminUrl] = useState(() => checkAdminUrl());
-  const [showGate, setShowGate] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.has("admin") && !checkAdminUrl();
-  });
+  const [adminPath] = useState(() => isAdminPath());
+  const [adminSession] = useState(() => hasAdminSession());
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.has("admin") && !checkAdminUrl()) {
-      setShowGate(true);
-    }
-  }, []);
+  useEffect(() => {}, []);
 
-  if (showGate) {
+  if (adminPath && !adminSession) {
     return <AdminGate />;
   }
 
-  if (isAdminUrl) {
+  if (adminPath && adminSession) {
     return (
       <AppProvider>
         <Toaster position="top-center" />

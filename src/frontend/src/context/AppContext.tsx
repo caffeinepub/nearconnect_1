@@ -166,10 +166,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem("nc_friend_requests");
     return stored ? JSON.parse(stored) : [];
   });
-  const [friendships, setFriendships] = useState<string[]>(() => {
-    const stored = localStorage.getItem("nc_friendships");
-    return stored ? JSON.parse(stored) : [];
-  });
   const [userLocation, setUserLocation] = useState<{
     lat: number;
     lng: number;
@@ -358,9 +354,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     setFriendRequests(updatedReqs);
     localStorage.setItem("nc_friend_requests", JSON.stringify(updatedReqs));
-    const updatedFriendships = [...new Set([...friendships, fromId])];
-    setFriendships(updatedFriendships);
-    localStorage.setItem("nc_friendships", JSON.stringify(updatedFriendships));
   };
 
   const deleteUser = (userId: string) => {
@@ -399,7 +392,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const radiusLabel = RADIUS_LABELS[currentUser?.radiusTier || "free"];
 
-  // Compute allUsers: real users (excluding current) + bot
+  // allUsers: all non-current, non-bot users + bot
   const allUsers: FriendUser[] = [
     ...users
       .filter((u) => u.id !== currentUser?.id && !u.isBot)
@@ -419,19 +412,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     BOT_USER,
   ];
 
-  // Compute friends: accepted friendships + bot always
+  // friends: ALL registered users (with showInRadius) are visible as nearby + bot always
+  // This ensures users who sign up are discoverable without needing explicit friend requests
   const friends: FriendUser[] = [
     ...users
       .filter(
         (u) =>
-          u.id !== currentUser?.id && !u.isBot && friendships.includes(u.id),
+          u.id !== currentUser?.id &&
+          !u.isBot &&
+          !u.isAdmin &&
+          u.showInRadius !== false,
       )
       .map(
         (u): FriendUser => ({
           id: u.id,
           username: u.username,
           displayName: u.displayName,
-          online: u.online ?? false,
+          online: u.online ?? true,
           lastSeen: u.lastSeen,
           isBot: u.isBot,
           isAdmin: u.isAdmin,
