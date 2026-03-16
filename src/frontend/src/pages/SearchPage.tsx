@@ -1,0 +1,205 @@
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Check, Clock, Search, UserPlus } from "lucide-react";
+import { useState } from "react";
+import { BottomNav } from "../components/BottomNav";
+import { LiquidFluxBg } from "../components/LiquidFluxBg";
+import { useApp } from "../context/AppContext";
+
+interface SearchPageProps {
+  onNavigate: (page: "friends" | "search" | "settings") => void;
+}
+
+export function SearchPage({ onNavigate }: SearchPageProps) {
+  const { allUsers, friendRequests, sendFriendRequest, theme } = useApp();
+  const [query, setQuery] = useState("");
+  const isLight = theme === "light-clean";
+
+  const results =
+    query.trim().length > 0
+      ? allUsers.filter(
+          (u) =>
+            u.username.toLowerCase().includes(query.toLowerCase()) ||
+            u.id.toLowerCase().includes(query.toLowerCase()) ||
+            u.displayName.toLowerCase().includes(query.toLowerCase()),
+        )
+      : allUsers;
+
+  const getRequestStatus = (toId: string) => {
+    const req = friendRequests.find((r) => r.toId === toId);
+    return req?.status || null;
+  };
+
+  return (
+    <div
+      style={{ position: "relative", minHeight: "100dvh", paddingBottom: 80 }}
+    >
+      <LiquidFluxBg />
+      <div
+        className="page-enter"
+        style={{
+          position: "relative",
+          zIndex: 1,
+          maxWidth: 430,
+          margin: "0 auto",
+          padding: "0 16px",
+        }}
+      >
+        <div style={{ paddingTop: 56, paddingBottom: 20 }}>
+          <h1
+            style={{
+              fontFamily: "'Bricolage Grotesque', sans-serif",
+              fontSize: 28,
+              fontWeight: 700,
+              color: isLight ? "#111" : "white",
+              margin: 0,
+              marginBottom: 20,
+              letterSpacing: -0.5,
+            }}
+          >
+            Find People
+          </h1>
+
+          <div style={{ position: "relative" }}>
+            <Search
+              size={16}
+              style={{
+                position: "absolute",
+                left: 14,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "rgba(255,255,255,0.35)",
+                zIndex: 1,
+              }}
+            />
+            <Input
+              data-ocid="search.search_input"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by username or ID..."
+              style={{
+                paddingLeft: 42,
+                background: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: isLight ? "#111" : "white",
+                borderRadius: 14,
+                height: 48,
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {results.length === 0 ? (
+            <div
+              data-ocid="search.empty_state"
+              style={{
+                textAlign: "center",
+                padding: "40px 20px",
+                color: "rgba(255,255,255,0.3)",
+              }}
+            >
+              <Search size={36} style={{ marginBottom: 12, opacity: 0.3 }} />
+              <p>No users found for &ldquo;{query}&rdquo;</p>
+            </div>
+          ) : (
+            results.map((user, i) => {
+              const status = getRequestStatus(user.id);
+              return (
+                <div
+                  key={user.id}
+                  data-ocid={`search.item.${i + 1}`}
+                  className="glass-card"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    padding: "14px 16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 46,
+                      height: 46,
+                      borderRadius: "50%",
+                      background: `linear-gradient(135deg, oklch(0.5 0.25 ${200 + i * 35}), oklch(0.65 0.2 ${250 + i * 35}))`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 700,
+                      fontSize: 16,
+                      color: "white",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {user.displayName[0]}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontWeight: 600,
+                        fontSize: 14,
+                        color: isLight ? "#111" : "white",
+                      }}
+                    >
+                      {user.displayName}
+                    </p>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 12,
+                        color: "rgba(255,255,255,0.4)",
+                      }}
+                    >
+                      @{user.username} · {user.id}
+                    </p>
+                  </div>
+                  <Button
+                    data-ocid={`search.item.${i + 1}.button`}
+                    onClick={() => !status && sendFriendRequest(user.id)}
+                    disabled={!!status}
+                    size="sm"
+                    style={{
+                      borderRadius: 10,
+                      background:
+                        status === "pending"
+                          ? "rgba(255,255,255,0.07)"
+                          : "linear-gradient(135deg, oklch(0.5 0.25 280), oklch(0.65 0.2 200))",
+                      border:
+                        status === "pending"
+                          ? "1px solid rgba(255,255,255,0.15)"
+                          : "none",
+                      color: "white",
+                      fontSize: 12,
+                      padding: "6px 14px",
+                      minWidth: 80,
+                    }}
+                  >
+                    {status === "pending" ? (
+                      <>
+                        <Clock size={12} style={{ marginRight: 4 }} />
+                        Pending
+                      </>
+                    ) : status === "accepted" ? (
+                      <>
+                        <Check size={12} style={{ marginRight: 4 }} />
+                        Friends
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus size={12} style={{ marginRight: 4 }} />
+                        Add
+                      </>
+                    )}
+                  </Button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+      <BottomNav active="search" onNavigate={onNavigate} />
+    </div>
+  );
+}
