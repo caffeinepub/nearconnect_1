@@ -134,4 +134,5 @@ export interface backendInterface {
     updateLocation(userId: string, location: LocationInput): Promise<User>;
     updateSettings(userId: string, settings: UserSettings): Promise<User>;
     verifyCredentials(username: string, passwordHash: string): Promise<User | null>;
+    updateUserRadiusTier(userId: string, tier: bigint): Promise<User>;
 }

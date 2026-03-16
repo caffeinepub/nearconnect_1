@@ -1,10 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronLeft,
   DollarSign,
+  Gift,
   Loader2,
   Shield,
   ShoppingCart,
@@ -12,13 +21,45 @@ import {
   UserCheck,
 } from "lucide-react";
 import { useState } from "react";
-import { BottomNav } from "../components/BottomNav";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
-import { useApp } from "../context/AppContext";
+import { type RadiusTier, useApp } from "../context/AppContext";
 
 interface AdminPageProps {
   onNavigate: (page: "friends" | "search" | "settings" | "admin") => void;
 }
+
+const TIER_LABELS: Record<RadiusTier, string> = {
+  free: "Free (500m)",
+  basic: "Basic (1km)",
+  standard: "Standard (5km)",
+  premium: "Premium (10km)",
+};
+
+const TIER_BADGE_COLORS: Record<
+  RadiusTier,
+  { bg: string; color: string; border: string }
+> = {
+  free: {
+    bg: "rgba(150,150,150,0.15)",
+    color: "rgba(200,200,200,0.8)",
+    border: "rgba(150,150,150,0.25)",
+  },
+  basic: {
+    bg: "rgba(80,180,255,0.15)",
+    color: "oklch(0.78 0.15 210)",
+    border: "oklch(0.78 0.15 210 / 0.3)",
+  },
+  standard: {
+    bg: "rgba(120,255,170,0.12)",
+    color: "oklch(0.78 0.18 155)",
+    border: "oklch(0.78 0.18 155 / 0.3)",
+  },
+  premium: {
+    bg: "oklch(0.45 0.25 30 / 0.2)",
+    color: "oklch(0.78 0.2 50)",
+    border: "oklch(0.78 0.2 50 / 0.3)",
+  },
+};
 
 export function AdminPage({ onNavigate }: AdminPageProps) {
   const {
@@ -28,9 +69,17 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
     theme,
     purchaseSettings,
     savePurchaseSettings,
+    grantPurchaseToUser,
   } = useApp();
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const isLight = theme === "light-clean";
+
+  // Per-user grant tier state
+  const [grantTiers, setGrantTiers] = useState<Record<string, RadiusTier>>({});
+  const [grantingUsers, setGrantingUsers] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [grantSuccess, setGrantSuccess] = useState<Record<string, boolean>>({});
 
   // Purchase settings local state
   const [purchaseEnabled, setPurchaseEnabled] = useState(
@@ -63,6 +112,23 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
       setConfirmDelete(null);
     } else {
       setConfirmDelete(userId);
+    }
+  };
+
+  const handleGrantPurchase = async (userId: string) => {
+    const tier = grantTiers[userId] || "basic";
+    setGrantingUsers((prev) => ({ ...prev, [userId]: true }));
+    try {
+      await grantPurchaseToUser(userId, tier);
+      setGrantSuccess((prev) => ({ ...prev, [userId]: true }));
+      setTimeout(
+        () => setGrantSuccess((prev) => ({ ...prev, [userId]: false })),
+        2500,
+      );
+    } catch {
+      // silent
+    } finally {
+      setGrantingUsers((prev) => ({ ...prev, [userId]: false }));
     }
   };
 
@@ -99,7 +165,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
   return (
     <div
       data-ocid="admin.page"
-      style={{ position: "relative", minHeight: "100dvh", paddingBottom: 80 }}
+      style={{ position: "relative", minHeight: "100dvh" }}
     >
       <LiquidFluxBg />
       <div
@@ -114,6 +180,28 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
       >
         {/* Header */}
         <div style={{ paddingTop: 56, paddingBottom: 20 }}>
+          {/* Back button */}
+          <button
+            type="button"
+            data-ocid="admin.back_button"
+            onClick={() => onNavigate("friends")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: isLight ? "#555" : "rgba(255,255,255,0.5)",
+              fontSize: 13,
+              padding: "4px 0",
+              marginBottom: 14,
+            }}
+          >
+            <ChevronLeft size={17} />
+            Back
+          </button>
+
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div
               style={{
@@ -174,151 +262,271 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
               const isMe = user.id === currentUser?.id;
               const isAdminUser = user.isAdmin === true;
               const isPendingDelete = confirmDelete === user.id;
+              const currentTier = user.radiusTier || "free";
+              const tierColors = TIER_BADGE_COLORS[currentTier];
+              const isGranting = grantingUsers[user.id];
+              const didGrantSuccess = grantSuccess[user.id];
               return (
                 <div
                   key={user.id}
                   data-ocid={`admin.user.item.${i + 1}`}
                   className="glass-card"
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
                     padding: "14px 16px",
                     border: isPendingDelete
                       ? "1px solid oklch(0.6 0.25 30 / 0.5)"
                       : undefined,
                   }}
                 >
-                  {/* Avatar */}
+                  {/* Top row: avatar + info + delete */}
                   <div
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: "50%",
-                      background: isAdminUser
-                        ? "linear-gradient(135deg, oklch(0.45 0.25 30), oklch(0.6 0.2 50))"
-                        : `linear-gradient(135deg, oklch(0.5 0.25 ${200 + i * 37}), oklch(0.65 0.2 ${250 + i * 37}))`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 700,
-                      fontSize: 17,
-                      color: "white",
-                      flexShrink: 0,
-                    }}
+                    style={{ display: "flex", alignItems: "center", gap: 12 }}
                   >
-                    {user.displayName[0].toUpperCase()}
-                  </div>
-
-                  {/* Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Avatar */}
                     <div
-                      style={{ display: "flex", alignItems: "center", gap: 6 }}
-                    >
-                      <span
-                        style={{
-                          fontWeight: 600,
-                          fontSize: 14,
-                          color: isLight ? "#111" : "white",
-                        }}
-                      >
-                        {user.displayName}
-                      </span>
-                      {isAdminUser && (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            background: "oklch(0.45 0.25 30 / 0.3)",
-                            color: "oklch(0.75 0.2 50)",
-                            border: "1px solid oklch(0.6 0.2 50 / 0.3)",
-                            borderRadius: 6,
-                            padding: "1px 6px",
-                          }}
-                        >
-                          ADMIN
-                        </span>
-                      )}
-                      {isMe && (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            background: "rgba(128,200,255,0.15)",
-                            color: "oklch(0.8 0.15 200)",
-                            border: "1px solid oklch(0.8 0.15 200 / 0.3)",
-                            borderRadius: 6,
-                            padding: "1px 6px",
-                          }}
-                        >
-                          YOU
-                        </span>
-                      )}
-                    </div>
-                    <p
                       style={{
-                        margin: 0,
-                        fontSize: 11,
-                        color: isLight ? "#888" : "rgba(255,255,255,0.4)",
-                      }}
-                    >
-                      @{user.username} · {user.id}
-                    </p>
-                    {user.createdAt && (
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: 10,
-                          color: isLight ? "#aaa" : "rgba(255,255,255,0.25)",
-                        }}
-                      >
-                        Joined {new Date(user.createdAt).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Delete button */}
-                  {!isAdminUser ? (
-                    <Button
-                      data-ocid={`admin.user.delete_button.${i + 1}`}
-                      onClick={() => handleDelete(user.id)}
-                      size="sm"
-                      style={{
-                        borderRadius: 10,
-                        background: isPendingDelete
+                        width: 44,
+                        height: 44,
+                        borderRadius: "50%",
+                        background: isAdminUser
                           ? "linear-gradient(135deg, oklch(0.45 0.25 30), oklch(0.6 0.2 50))"
-                          : "rgba(255,80,80,0.1)",
-                        border: isPendingDelete
-                          ? "none"
-                          : "1px solid rgba(255,80,80,0.25)",
-                        color: isPendingDelete ? "white" : "oklch(0.7 0.2 30)",
-                        fontSize: 12,
-                        padding: "6px 12px",
+                          : `linear-gradient(135deg, oklch(0.5 0.25 ${200 + i * 37}), oklch(0.65 0.2 ${250 + i * 37}))`,
                         display: "flex",
                         alignItems: "center",
-                        gap: 4,
+                        justifyContent: "center",
+                        fontWeight: 700,
+                        fontSize: 17,
+                        color: "white",
                         flexShrink: 0,
                       }}
                     >
-                      {isPendingDelete ? (
-                        <>
-                          <AlertTriangle size={12} />
-                          Confirm
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 size={12} />
-                          Delete
-                        </>
+                      {user.displayName[0].toUpperCase()}
+                    </div>
+
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 14,
+                            color: isLight ? "#111" : "white",
+                          }}
+                        >
+                          {user.displayName}
+                        </span>
+                        {isAdminUser && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              background: "oklch(0.45 0.25 30 / 0.3)",
+                              color: "oklch(0.75 0.2 50)",
+                              border: "1px solid oklch(0.6 0.2 50 / 0.3)",
+                              borderRadius: 6,
+                              padding: "1px 6px",
+                            }}
+                          >
+                            ADMIN
+                          </span>
+                        )}
+                        {isMe && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              background: "rgba(128,200,255,0.15)",
+                              color: "oklch(0.8 0.15 200)",
+                              border: "1px solid oklch(0.8 0.15 200 / 0.3)",
+                              borderRadius: 6,
+                              padding: "1px 6px",
+                            }}
+                          >
+                            YOU
+                          </span>
+                        )}
+                        {/* Tier badge */}
+                        <span
+                          style={{
+                            fontSize: 10,
+                            background: tierColors.bg,
+                            color: tierColors.color,
+                            border: `1px solid ${tierColors.border}`,
+                            borderRadius: 6,
+                            padding: "1px 6px",
+                            textTransform: "uppercase",
+                            letterSpacing: 0.5,
+                          }}
+                        >
+                          {currentTier}
+                        </span>
+                      </div>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 11,
+                          color: isLight ? "#888" : "rgba(255,255,255,0.4)",
+                        }}
+                      >
+                        @{user.username} · {user.id}
+                      </p>
+                      {user.createdAt && (
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 10,
+                            color: isLight ? "#aaa" : "rgba(255,255,255,0.25)",
+                          }}
+                        >
+                          Joined {new Date(user.createdAt).toLocaleDateString()}
+                        </p>
                       )}
-                    </Button>
-                  ) : (
+                    </div>
+
+                    {/* Delete button */}
+                    {!isAdminUser ? (
+                      <Button
+                        data-ocid={`admin.user.delete_button.${i + 1}`}
+                        onClick={() => handleDelete(user.id)}
+                        size="sm"
+                        style={{
+                          borderRadius: 10,
+                          background: isPendingDelete
+                            ? "linear-gradient(135deg, oklch(0.45 0.25 30), oklch(0.6 0.2 50))"
+                            : "rgba(255,80,80,0.1)",
+                          border: isPendingDelete
+                            ? "none"
+                            : "1px solid rgba(255,80,80,0.25)",
+                          color: isPendingDelete
+                            ? "white"
+                            : "oklch(0.7 0.2 30)",
+                          fontSize: 12,
+                          padding: "6px 12px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {isPendingDelete ? (
+                          <>
+                            <AlertTriangle size={12} />
+                            Confirm
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 size={12} />
+                            Delete
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "rgba(255,255,255,0.2)",
+                          padding: "6px 8px",
+                        }}
+                      >
+                        Protected
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Grant purchase row — only for non-admin users */}
+                  {!isAdminUser && (
                     <div
                       style={{
-                        fontSize: 11,
-                        color: "rgba(255,255,255,0.2)",
-                        padding: "6px 8px",
+                        marginTop: 12,
+                        paddingTop: 12,
+                        borderTop: `1px solid ${isLight ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.07)"}`,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
                       }}
                     >
-                      Protected
+                      <Gift
+                        size={13}
+                        style={{ color: "oklch(0.75 0.18 280)", flexShrink: 0 }}
+                      />
+                      <Select
+                        value={grantTiers[user.id] || "basic"}
+                        onValueChange={(val) =>
+                          setGrantTiers((prev) => ({
+                            ...prev,
+                            [user.id]: val as RadiusTier,
+                          }))
+                        }
+                      >
+                        <SelectTrigger
+                          data-ocid={`admin.user.select.${i + 1}`}
+                          style={{
+                            flex: 1,
+                            height: 32,
+                            fontSize: 12,
+                            background: isLight
+                              ? "rgba(0,0,0,0.05)"
+                              : "rgba(255,255,255,0.07)",
+                            border: `1px solid ${isLight ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.1)"}`,
+                            borderRadius: 8,
+                            color: isLight ? "#333" : "rgba(255,255,255,0.85)",
+                          }}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(
+                            Object.entries(TIER_LABELS) as [
+                              RadiusTier,
+                              string,
+                            ][]
+                          ).map(([tier, label]) => (
+                            <SelectItem key={tier} value={tier}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        data-ocid={`admin.user.primary_button.${i + 1}`}
+                        onClick={() => handleGrantPurchase(user.id)}
+                        disabled={isGranting}
+                        size="sm"
+                        style={{
+                          borderRadius: 8,
+                          background: didGrantSuccess
+                            ? "linear-gradient(135deg, oklch(0.5 0.2 145), oklch(0.65 0.18 160))"
+                            : "linear-gradient(135deg, oklch(0.45 0.2 260), oklch(0.6 0.18 280))",
+                          border: "none",
+                          color: "white",
+                          fontSize: 12,
+                          padding: "6px 14px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          flexShrink: 0,
+                          transition: "background 0.3s",
+                        }}
+                      >
+                        {isGranting ? (
+                          <Loader2
+                            size={12}
+                            style={{ animation: "spin 0.8s linear infinite" }}
+                          />
+                        ) : didGrantSuccess ? (
+                          <CheckCircle2 size={12} />
+                        ) : null}
+                        {isGranting
+                          ? "Granting..."
+                          : didGrantSuccess
+                            ? "Granted!"
+                            : "Grant"}
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -597,9 +805,8 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
           )}
         </div>
 
-        <div style={{ height: 16 }} />
+        <div style={{ height: 24 }} />
       </div>
-      <BottomNav active="admin" onNavigate={onNavigate} />
     </div>
   );
 }

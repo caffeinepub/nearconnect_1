@@ -17,6 +17,13 @@ export type Theme =
 
 export type RadiusTier = "free" | "basic" | "standard" | "premium";
 
+export interface SavedAccount {
+  id: string;
+  username: string;
+  displayName: string;
+  password: string;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -74,9 +81,9 @@ const RADIUS_LABELS: Record<RadiusTier, string> = {
 };
 
 const BOT_USER: FriendUser = {
-  id: "bot_nearconnect",
-  username: "nearbot",
-  displayName: "NearBot 🤖",
+  id: "bot_vibezone",
+  username: "vibebot",
+  displayName: "VibeBot 🤖",
   online: true,
   isBot: true,
 };
@@ -143,6 +150,31 @@ function extractErrorMessage(e: unknown): string {
   return String(e);
 }
 
+function loadSavedAccounts(): SavedAccount[] {
+  try {
+    const stored = localStorage.getItem("nc_saved_accounts");
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistSavedAccounts(accounts: SavedAccount[]) {
+  localStorage.setItem("nc_saved_accounts", JSON.stringify(accounts));
+}
+
+function upsertSavedAccount(account: SavedAccount) {
+  const accounts = loadSavedAccounts();
+  const idx = accounts.findIndex((a) => a.username === account.username);
+  if (idx >= 0) {
+    accounts[idx] = account;
+  } else {
+    accounts.push(account);
+  }
+  persistSavedAccounts(accounts);
+  return accounts;
+}
+
 interface AppContextValue {
   theme: Theme;
   setTheme: (t: Theme) => void;
@@ -171,6 +203,9 @@ interface AppContextValue {
   refreshFriends: () => void;
   purchaseSettings: PurchaseSettings | null;
   savePurchaseSettings: (settings: PurchaseSettings) => Promise<void>;
+  grantPurchaseToUser: (userId: string, tier: RadiusTier) => Promise<void>;
+  savedAccounts: SavedAccount[];
+  switchAccount: (username: string, password: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -181,6 +216,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem("nc_current_user");
     return stored ? JSON.parse(stored) : null;
   });
+  const [savedAccounts, setSavedAccounts] =
+    useState<SavedAccount[]>(loadSavedAccounts);
   // Local user store is only used for offline caching; backend is source of truth
   const [users, setUsers] = useState<User[]>([]);
   const [backendUsers, setBackendUsers] = useState<FriendUser[]>([]);
@@ -366,6 +403,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCurrentUser(localUser);
         localStorage.setItem("nc_current_user", JSON.stringify(localUser));
         actor.setOnlineStatus(localUser.id, true).catch(() => {});
+        // Save to saved accounts
+        const updated = upsertSavedAccount({
+          id: localUser.id,
+          username: localUser.username,
+          displayName: localUser.displayName,
+          password,
+        });
+        setSavedAccounts(updated);
         return true;
       }
     } catch {
@@ -403,6 +448,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCurrentUser(localUser);
       localStorage.setItem("nc_current_user", JSON.stringify(localUser));
       actor.setOnlineStatus(localUser.id, true).catch(() => {});
+      // Save to saved accounts
+      const updated = upsertSavedAccount({
+        id: localUser.id,
+        username: localUser.username,
+        displayName: localUser.displayName,
+        password,
+      });
+      setSavedAccounts(updated);
       return { success: true };
     } catch (e) {
       const raw = extractErrorMessage(e);
@@ -438,6 +491,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     setUserLocation(null);
     setBackendUsers([]);
+    // Intentionally keep savedAccounts in localStorage
+  };
+
+  const switchAccount = async (
+    username: string,
+    password: string,
+  ): Promise<boolean> => {
+    return login(username, password);
   };
 
   const getConversation = (friendId: string): Message[] => {
@@ -537,6 +598,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   };
 
+  const grantPurchaseToUser = async (userId: string, tier: RadiusTier) => {
+    // Update local user list state optimistically
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, radiusTier: tier } : u)),
+    );
+    // Refresh from backend to sync latest state
+    if (currentUser) await fetchBackendUsers(currentUser.id);
+  };
+
   const savePurchaseSettings = async (settings: PurchaseSettings) => {
     const actor = await getActor();
     await actor.setPurchaseSettings(settings);
@@ -597,6 +667,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         refreshFriends,
         purchaseSettings,
         savePurchaseSettings,
+        grantPurchaseToUser,
+        savedAccounts,
+        switchAccount,
       }}
     >
       {children}

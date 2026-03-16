@@ -14,8 +14,6 @@ const ADMIN_PASSWORD = "Qwerty12x";
 type Page = "auth" | "friends" | "search" | "chat" | "settings" | "admin";
 
 function isAdminPath(): boolean {
-  // Works for hash-based routing on ICP (e.g. yourapp.ic0.app/#adminproz)
-  // and path-based routing (e.g. yourapp.ic0.app/adminproz)
   return window.location.href.includes("adminproz");
 }
 
@@ -234,7 +232,16 @@ export default function App() {
   const [adminPath] = useState(() => isAdminPath());
   const [adminSession] = useState(() => hasAdminSession());
 
-  useEffect(() => {}, []);
+  // Back button: push state so back won't leave the app; attempt window.close() as fallback
+  useEffect(() => {
+    window.history.pushState(null, "", window.location.href);
+    const handlePopState = () => {
+      window.history.pushState(null, "", window.location.href);
+      window.close();
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   if (adminPath && !adminSession) {
     return <AdminGate />;

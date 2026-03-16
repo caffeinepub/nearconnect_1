@@ -3,6 +3,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   Bell,
   Eye,
+  Lock,
   LogOut,
   MapPin,
   Moon,
@@ -12,6 +13,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { toast } from "sonner";
 import { BottomNav } from "../components/BottomNav";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
 import { RADIUS_LABELS, type RadiusTier, useApp } from "../context/AppContext";
@@ -28,11 +30,16 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
 
   if (!currentUser) return null;
 
-  const tiers: { tier: RadiusTier; label: string; price: string }[] = [
-    { tier: "free", label: "500m", price: "Free" },
-    { tier: "basic", label: "1km", price: "$0.99" },
-    { tier: "standard", label: "5km", price: "$2.99" },
-    { tier: "premium", label: "10km", price: "$4.99" },
+  const tiers: {
+    tier: RadiusTier;
+    label: string;
+    price: string;
+    locked: boolean;
+  }[] = [
+    { tier: "free", label: "500m", price: "Free", locked: false },
+    { tier: "basic", label: "1km", price: "$0.99", locked: true },
+    { tier: "standard", label: "5km", price: "$2.99", locked: true },
+    { tier: "premium", label: "10km", price: "$4.99", locked: true },
   ];
 
   const themes = [
@@ -41,6 +48,19 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
     { key: "light-clean" as const, icon: Sun, label: "Light" },
     { key: "neon-pulse" as const, icon: Palette, label: "Neon" },
   ];
+
+  const handleTierClick = (tier: RadiusTier, locked: boolean) => {
+    if (locked) {
+      toast(
+        "Purchase this tier to unlock a larger radius. Contact admin or use the in-app upgrade.",
+        {
+          icon: "🔒",
+        },
+      );
+      return;
+    }
+    purchaseRadius(tier);
+  };
 
   return (
     <div
@@ -254,60 +274,98 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
             </p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {tiers.map(({ tier, label, price }) => (
-              <button
-                type="button"
-                key={tier}
-                data-ocid={`settings.radius.${tier}.button`}
-                onClick={() => purchaseRadius(tier)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  background:
-                    currentUser.radiusTier === tier
+            {tiers.map(({ tier, label, price, locked }) => {
+              const isActive = currentUser.radiusTier === tier;
+              const isLockedAndNotActive = locked && !isActive;
+              return (
+                <button
+                  type="button"
+                  key={tier}
+                  data-ocid={`settings.radius.${tier}.button`}
+                  onClick={() => handleTierClick(tier, locked)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    background: isActive
                       ? "linear-gradient(135deg, oklch(0.5 0.25 280 / 0.3), oklch(0.65 0.2 200 / 0.3))"
-                      : "rgba(255,255,255,0.04)",
-                  border:
-                    currentUser.radiusTier === tier
+                      : isLockedAndNotActive
+                        ? "rgba(255,255,255,0.02)"
+                        : "rgba(255,255,255,0.04)",
+                    border: isActive
                       ? "1px solid oklch(0.65 0.2 200 / 0.5)"
-                      : "1px solid rgba(255,255,255,0.08)",
-                  cursor: "pointer",
-                  color: isLight ? "#111" : "white",
-                }}
-              >
-                <MapPin
-                  size={14}
-                  style={{
-                    marginRight: 10,
-                    color:
-                      currentUser.radiusTier === tier
-                        ? "oklch(0.8 0.15 200)"
-                        : isLight
-                          ? "#888"
-                          : "rgba(255,255,255,0.4)",
-                  }}
-                />
-                <span style={{ flex: 1, fontSize: 14, textAlign: "left" }}>
-                  {label} radius
-                </span>
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color:
-                      currentUser.radiusTier === tier
-                        ? "oklch(0.8 0.15 200)"
-                        : isLight
-                          ? "#888"
-                          : "rgba(255,255,255,0.4)",
+                      : isLockedAndNotActive
+                        ? "1px solid rgba(255,255,255,0.05)"
+                        : "1px solid rgba(255,255,255,0.08)",
+                    cursor: locked ? "not-allowed" : "pointer",
+                    color: isLockedAndNotActive
+                      ? isLight
+                        ? "#bbb"
+                        : "rgba(255,255,255,0.3)"
+                      : isLight
+                        ? "#111"
+                        : "white",
+                    opacity: isLockedAndNotActive ? 0.65 : 1,
                   }}
                 >
-                  {price}
-                </span>
-              </button>
-            ))}
+                  <MapPin
+                    size={14}
+                    style={{
+                      marginRight: 10,
+                      color: isActive
+                        ? "oklch(0.8 0.15 200)"
+                        : isLockedAndNotActive
+                          ? isLight
+                            ? "#ccc"
+                            : "rgba(255,255,255,0.2)"
+                          : isLight
+                            ? "#888"
+                            : "rgba(255,255,255,0.4)",
+                    }}
+                  />
+                  <div style={{ flex: 1, textAlign: "left" }}>
+                    <span style={{ fontSize: 14, display: "block" }}>
+                      {label} radius
+                    </span>
+                    {isLockedAndNotActive && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: isLight ? "#aaa" : "rgba(255,255,255,0.25)",
+                          display: "block",
+                          marginTop: 1,
+                        }}
+                      >
+                        {price} · Requires upgrade
+                      </span>
+                    )}
+                  </div>
+                  {isLockedAndNotActive ? (
+                    <Lock
+                      size={14}
+                      style={{
+                        color: isLight ? "#bbb" : "rgba(255,255,255,0.25)",
+                      }}
+                    />
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: isActive
+                          ? "oklch(0.8 0.15 200)"
+                          : isLight
+                            ? "#888"
+                            : "rgba(255,255,255,0.4)",
+                      }}
+                    >
+                      {price}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
