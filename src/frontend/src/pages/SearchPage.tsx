@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Check, Clock, MapPin, Search, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { BottomNav } from "../components/BottomNav";
+import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
 import {
   formatDistance,
@@ -253,6 +254,7 @@ export function SearchPage({ onNavigate }: SearchPageProps) {
           )}
         </div>
       </div>
+      <DevFooter />
       <BottomNav active="search" onNavigate={onNavigate} />
     </div>
   );

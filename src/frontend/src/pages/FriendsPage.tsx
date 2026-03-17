@@ -1,8 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import { MapPin, MessageCircle, Navigation, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BottomNav } from "../components/BottomNav";
+import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
+import { createActorWithConfig } from "../config";
 import {
   type FriendUser,
   formatDistance,
@@ -34,10 +36,41 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
     theme,
     userLocation,
     refreshFriends,
+    currentUser,
   } = useApp();
   const isLight = theme === "light-clean";
   const [locationRequested, setLocationRequested] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!currentUser?.id || !friends.length) return;
+    let cancelled = false;
+    const fetchCounts = async () => {
+      try {
+        const actor = await createActorWithConfig();
+        const results = await Promise.all(
+          friends
+            .filter((f) => !f.isBot)
+            .map(async (f) => {
+              const count = await actor.getUnreadCount(currentUser.id, f.id);
+              return [f.id, Number(count)] as [string, number];
+            }),
+        );
+        if (!cancelled) {
+          setUnreadCounts(Object.fromEntries(results));
+        }
+      } catch {
+        // silent
+      }
+    };
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [currentUser?.id, friends]);
 
   const handleRequestLocation = () => {
     setLocationRequested(true);
@@ -271,6 +304,7 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                     width: "100%",
                     textAlign: "left",
                     transition: "transform 0.15s, box-shadow 0.15s",
+                    position: "relative",
                   }}
                   onMouseEnter={handleMouseEnter}
                   onMouseLeave={handleMouseLeave}
@@ -311,6 +345,33 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                       />
                     )}
                   </div>
+                  {/* Unread badge */}
+                  {(unreadCounts[friend.id] ?? 0) > 0 && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 10,
+                        right: 12,
+                        minWidth: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        background: "oklch(0.6 0.28 25)",
+                        color: "white",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "0 5px",
+                        animation: "badgePulse 1.5s ease-in-out infinite",
+                        boxShadow: "0 0 10px oklch(0.6 0.28 25 / 0.7)",
+                      }}
+                    >
+                      {(unreadCounts[friend.id] ?? 0) > 99
+                        ? "99+"
+                        : unreadCounts[friend.id]}
+                    </div>
+                  )}
                   {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
@@ -393,6 +454,7 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
           </div>
         )}
       </div>
+      <DevFooter />
       <BottomNav active="friends" onNavigate={onNavigate} />
     </div>
   );

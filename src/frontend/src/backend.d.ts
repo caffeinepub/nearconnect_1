@@ -56,6 +56,13 @@ export interface TransformationInput {
     context: Uint8Array;
     response: http_request_result;
 }
+export interface Message {
+    seen: boolean;
+    text: string;
+    recipient: string;
+    sender: string;
+    timestamp: Time;
+}
 export interface UserSettings {
     notifications: boolean;
     showOnlineStatus: boolean;
@@ -107,25 +114,32 @@ export enum UserRole {
 }
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    broadcastMessage(text: string): Promise<void>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     deleteUser(userId: string): Promise<void>;
     follow(username: string): Promise<string>;
     getAllUsers(): Promise<Array<User>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getConversation(userId: string, otherUserId: string): Promise<Array<Message>>;
     getCoordinates(): Promise<Coordinates | null>;
     getFollowers(username: string): Promise<Array<string>>;
     getFollowing(username: string): Promise<Array<string>>;
+    getNewMessages(userId: string, otherUserId: string, lastTimestamp: Time): Promise<Array<Message>>;
     getPurchaseSettings(): Promise<PurchaseSettings>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
+    getTotalUnreadCount(userId: string): Promise<bigint>;
+    getUnreadCount(userId: string, otherUserId: string): Promise<bigint>;
     getUserById(userId: string): Promise<User | null>;
     getUserByUsername(username: string): Promise<User | null>;
     getUserProfile(userPrincipal: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
+    markConversationSeen(userId: string, otherUserId: string): Promise<void>;
     register(input: UserInput): Promise<User>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     saveCoordinates(coordinates: Coordinates): Promise<void>;
+    sendMessage(sender: string, recipient: string, text: string): Promise<void>;
     setOnlineStatus(userId: string, online: boolean): Promise<User>;
     setPurchaseSettings(settings: PurchaseSettings): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
@@ -133,6 +147,6 @@ export interface backendInterface {
     unfollow(username: string): Promise<string>;
     updateLocation(userId: string, location: LocationInput): Promise<User>;
     updateSettings(userId: string, settings: UserSettings): Promise<User>;
-    verifyCredentials(username: string, passwordHash: string): Promise<User | null>;
     updateUserRadiusTier(userId: string, tier: bigint): Promise<User>;
+    verifyCredentials(username: string, passwordHash: string): Promise<User | null>;
 }

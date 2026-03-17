@@ -13,6 +13,13 @@ import type { Principal } from '@icp-sdk/core/principal';
 export interface Coordinates { 'latitude' : string, 'longitude' : string }
 export interface Location { 'lat' : number, 'lng' : number, 'updatedAt' : Time }
 export interface LocationInput { 'lat' : number, 'lng' : number }
+export interface Message {
+  'seen' : boolean,
+  'text' : string,
+  'recipient' : string,
+  'sender' : string,
+  'timestamp' : Time,
+}
 export interface PurchaseSettings {
   'basicPrice' : bigint,
   'premiumPrice' : bigint,
@@ -88,6 +95,7 @@ export interface http_request_result {
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'broadcastMessage' : ActorMethod<[string], undefined>,
   'createCheckoutSession' : ActorMethod<
     [Array<ShoppingItem>, string, string],
     string
@@ -97,19 +105,25 @@ export interface _SERVICE {
   'getAllUsers' : ActorMethod<[], Array<User>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getConversation' : ActorMethod<[string, string], Array<Message>>,
   'getCoordinates' : ActorMethod<[], [] | [Coordinates]>,
   'getFollowers' : ActorMethod<[string], Array<string>>,
   'getFollowing' : ActorMethod<[string], Array<string>>,
+  'getNewMessages' : ActorMethod<[string, string, Time], Array<Message>>,
   'getPurchaseSettings' : ActorMethod<[], PurchaseSettings>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
+  'getTotalUnreadCount' : ActorMethod<[string], bigint>,
+  'getUnreadCount' : ActorMethod<[string, string], bigint>,
   'getUserById' : ActorMethod<[string], [] | [User]>,
   'getUserByUsername' : ActorMethod<[string], [] | [User]>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isStripeConfigured' : ActorMethod<[], boolean>,
+  'markConversationSeen' : ActorMethod<[string, string], undefined>,
   'register' : ActorMethod<[UserInput], User>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'saveCoordinates' : ActorMethod<[Coordinates], undefined>,
+  'sendMessage' : ActorMethod<[string, string, string], undefined>,
   'setOnlineStatus' : ActorMethod<[string, boolean], User>,
   'setPurchaseSettings' : ActorMethod<[PurchaseSettings], undefined>,
   'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
@@ -117,6 +131,7 @@ export interface _SERVICE {
   'unfollow' : ActorMethod<[string], string>,
   'updateLocation' : ActorMethod<[string, LocationInput], User>,
   'updateSettings' : ActorMethod<[string, UserSettings], User>,
+  'updateUserRadiusTier' : ActorMethod<[string, bigint], User>,
   'verifyCredentials' : ActorMethod<[string, string], [] | [User]>,
 }
 export declare const idlService: IDL.ServiceClass;

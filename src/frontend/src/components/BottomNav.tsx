@@ -1,4 +1,6 @@
 import { Search, Settings, Shield, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createActorWithConfig } from "../config";
 import { useApp } from "../context/AppContext";
 
 type NavPage = "friends" | "search" | "settings" | "admin";
@@ -12,13 +14,41 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
   const { theme, currentUser } = useApp();
   const isLight = theme === "light-clean";
   const isAdmin = currentUser?.isAdmin;
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    let cancelled = false;
+
+    const fetchUnread = async () => {
+      try {
+        const actor = await createActorWithConfig();
+        const count = await actor.getTotalUnreadCount(currentUser.id);
+        if (!cancelled) setTotalUnread(Number(count));
+      } catch {
+        // silent
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [currentUser?.id]);
 
   const tabs = [
-    { key: "friends" as NavPage, icon: Users, label: "Friends" },
-    { key: "search" as NavPage, icon: Search, label: "Search" },
-    { key: "settings" as NavPage, icon: Settings, label: "Settings" },
+    {
+      key: "friends" as NavPage,
+      icon: Users,
+      label: "Friends",
+      badge: totalUnread,
+    },
+    { key: "search" as NavPage, icon: Search, label: "Search", badge: 0 },
+    { key: "settings" as NavPage, icon: Settings, label: "Settings", badge: 0 },
     ...(isAdmin
-      ? [{ key: "admin" as NavPage, icon: Shield, label: "Admin" }]
+      ? [{ key: "admin" as NavPage, icon: Shield, label: "Admin", badge: 0 }]
       : []),
   ];
 
@@ -41,7 +71,7 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
         borderBottom: "none",
       }}
     >
-      {tabs.map(({ key, icon: Icon, label }) => (
+      {tabs.map(({ key, icon: Icon, label, badge }) => (
         <button
           type="button"
           key={key}
@@ -57,22 +87,49 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
             cursor: "pointer",
             padding: "4px 20px",
             transition: "all 0.2s",
+            position: "relative",
           }}
         >
-          <Icon
-            size={22}
-            style={{
-              color:
-                active === key
-                  ? key === "admin"
-                    ? "oklch(0.75 0.2 50)"
-                    : "oklch(0.8 0.15 200)"
-                  : isLight
-                    ? "#888"
-                    : "rgba(255,255,255,0.4)",
-              transition: "color 0.2s",
-            }}
-          />
+          <div style={{ position: "relative" }}>
+            <Icon
+              size={22}
+              style={{
+                color:
+                  active === key
+                    ? key === "admin"
+                      ? "oklch(0.75 0.2 50)"
+                      : "oklch(0.8 0.15 200)"
+                    : isLight
+                      ? "#888"
+                      : "rgba(255,255,255,0.4)",
+                transition: "color 0.2s",
+              }}
+            />
+            {badge > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -6,
+                  right: -8,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  background: "oklch(0.6 0.28 25)",
+                  color: "white",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 4px",
+                  animation: "badgePulse 1.5s ease-in-out infinite",
+                  boxShadow: "0 0 8px oklch(0.6 0.28 25 / 0.7)",
+                }}
+              >
+                {badge > 99 ? "99+" : badge}
+              </span>
+            )}
+          </div>
           <span
             style={{
               fontSize: 10,

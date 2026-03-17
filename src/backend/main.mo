@@ -8,8 +8,11 @@ import Time "mo:core/Time";
 import Auth "authorization/access-control";
 import Stripe "stripe/stripe";
 import OutCall "http-outcalls/outcall";
+import Iter "mo:core/Iter";
 
 import MixinAuthorization "authorization/MixinAuthorization";
+
+
 
 actor {
   let accessControlState = Auth.initState();
@@ -83,10 +86,19 @@ actor {
     premiumPrice : Nat;
   };
 
+  public type Message = {
+    sender : Text;
+    recipient : Text;
+    text : Text;
+    timestamp : Time.Time;
+    seen : Bool;
+  };
+
   let users = Map.empty<Text, UserInternal>();
   let principalToUserId = Map.empty<Principal, Text>();
   let followers = Map.empty<Text, List.List<Text>>();
   let following = Map.empty<Text, List.List<Text>>();
+  let messages = Map.empty<Text, List.List<Message>>();
 
   var stripeConfiguration : ?Stripe.StripeConfiguration = null;
   var purchaseSettings : PurchaseSettings = {
@@ -131,6 +143,17 @@ actor {
       online = user.online;
       settings = user.settings;
     };
+  };
+
+  func verifyUserOwnership(caller : Principal, userId : Text) : Bool {
+    switch (users.get(userId)) {
+      case (?user) { user.principal == caller };
+      case (null) { false };
+    };
+  };
+
+  func getCallerUserId(caller : Principal) : ?Text {
+    principalToUserId.get(caller);
   };
 
   // All calls are allowed - auth is handled via username/password
@@ -299,6 +322,11 @@ actor {
   };
 
   public shared ({ caller }) func updateLocation(userId : Text, location : LocationInput) : async User {
+    // Verify caller owns this userId or is admin
+    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only update your own location");
+    };
+    
     switch (getUserInternal(userId)) {
       case (?user) {
         let updatedLocation : Location = {
@@ -354,6 +382,11 @@ actor {
   };
 
   public shared ({ caller }) func setOnlineStatus(userId : Text, online : Bool) : async User {
+    // Verify caller owns this userId or is admin
+    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only update your own status");
+    };
+    
     switch (getUserInternal(userId)) {
       case (?user) {
         let updatedUser : UserInternal = {
@@ -371,6 +404,11 @@ actor {
   };
 
   public shared ({ caller }) func updateSettings(userId : Text, settings : UserSettings) : async User {
+    // Verify caller owns this userId or is admin
+    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only update your own settings");
+    };
+    
     switch (getUserInternal(userId)) {
       case (?user) {
         let updatedUser : UserInternal = {
@@ -491,10 +529,93 @@ actor {
     };
   };
 
-  public shared ({ caller }) func updateUserRadiusTier(userId : Text, tier : Nat) : async User {
-    if (not Auth.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admins can grant purchases");
+  // Chat Messaging
+  public shared ({ caller }) func sendMessage(sender : Text, recipient : Text, text : Text) : async () {
+    // Verify caller owns the sender userId
+    if (not verifyUserOwnership(caller, sender)) {
+      Runtime.trap("Unauthorized: Can only send messages as yourself");
     };
+
+    // Verify recipient exists
+    switch (users.get(recipient)) {
+      case (null) { Runtime.trap("Recipient user not found") };
+      case (?_) {};
+    };
+
+    let message : Message = {
+      sender;
+      recipient;
+      text;
+      timestamp = Time.now();
+      seen = false;
+    };
+
+    // Store message in sender's conversation
+    let senderConversationKey = sender # "-" # recipient;
+    let senderMessages = messages.get(senderConversationKey);
+    let updatedSenderMessages = switch (senderMessages) {
+      case (?msgs) {
+        msgs.add(message);
+        msgs;
+      };
+      case (null) {
+        let newList = List.empty<Message>();
+        newList.add(message);
+        newList;
+      };
+    };
+    messages.add(senderConversationKey, updatedSenderMessages);
+
+    // Store message in recipient's conversation
+    let recipientConversationKey = recipient # "-" # sender;
+    let recipientMessages = messages.get(recipientConversationKey);
+    let updatedRecipientMessages = switch (recipientMessages) {
+      case (?msgs) {
+        msgs.add(message);
+        msgs;
+      };
+      case (null) {
+        let newList = List.empty<Message>();
+        newList.add(message);
+        newList;
+      };
+    };
+    messages.add(recipientConversationKey, updatedRecipientMessages);
+  };
+
+  public query ({ caller }) func getConversation(userId : Text, otherUserId : Text) : async [Message] {
+    // Verify caller owns userId or is admin
+    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own conversations");
+    };
+
+    let conversationKey = userId # "-" # otherUserId;
+    switch (messages.get(conversationKey)) {
+      case (?msgs) { msgs.toArray() };
+      case (null) { [] };
+    };
+  };
+
+  public query ({ caller }) func getNewMessages(userId : Text, otherUserId : Text, lastTimestamp : Time.Time) : async [Message] {
+    // Verify caller owns userId or is admin
+    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own messages");
+    };
+
+    let conversationKey = userId # "-" # otherUserId;
+    switch (messages.get(conversationKey)) {
+      case (?msgs) {
+        let filtered = msgs.toArray().filter(
+          func(msg) { msg.timestamp > lastTimestamp }
+        );
+        filtered;
+      };
+      case (null) { [] };
+    };
+  };
+
+  // Radius Tier Management - removed ICP admin check per user request
+  public shared ({ caller }) func updateUserRadiusTier(userId : Text, tier : Nat) : async User {
     switch (getUserInternal(userId)) {
       case (?user) {
         let updatedUser : UserInternal = {
@@ -510,4 +631,181 @@ actor {
     };
   };
 
+  // Mark all messages in a conversation as seen
+  // Also updates the sender's copy so they see the double tick
+  public shared ({ caller }) func markConversationSeen(userId : Text, otherUserId : Text) : async () {
+    // Verify caller owns userId or is admin
+    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only update your own messages");
+    };
+
+    // Mark messages as seen in recipient's own conversation key (userId-otherUserId)
+    // These are messages sent by otherUserId to userId
+    let conversationKey = userId # "-" # otherUserId;
+    switch (messages.get(conversationKey)) {
+      case (?msgs) {
+        let updatedMessages = List.empty<Message>();
+        for (msg in msgs.values()) {
+          if (msg.recipient == userId and not msg.seen) {
+            updatedMessages.add({
+              msg with
+              seen = true;
+            });
+          } else {
+            updatedMessages.add(msg);
+          };
+        };
+        messages.add(conversationKey, updatedMessages);
+      };
+      case (null) {};
+    };
+
+    // Also update the sender's copy (otherUserId-userId) so the sender sees double ticks
+    let senderConversationKey = otherUserId # "-" # userId;
+    switch (messages.get(senderConversationKey)) {
+      case (?msgs) {
+        let updatedMessages = List.empty<Message>();
+        for (msg in msgs.values()) {
+          if (msg.sender == otherUserId and msg.recipient == userId and not msg.seen) {
+            updatedMessages.add({
+              msg with
+              seen = true;
+            });
+          } else {
+            updatedMessages.add(msg);
+          };
+        };
+        messages.add(senderConversationKey, updatedMessages);
+      };
+      case (null) {};
+    };
+  };
+
+  // Get count of unread messages in a conversation
+  public query ({ caller }) func getUnreadCount(userId : Text, otherUserId : Text) : async Nat {
+    // Verify caller owns userId or is admin
+    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own messages");
+    };
+
+    let conversationKey = userId # "-" # otherUserId;
+    switch (messages.get(conversationKey)) {
+      case (?msgs) {
+        let filtered = msgs.toArray().filter(
+          func(msg) {
+            msg.recipient == userId and not msg.seen
+          }
+        );
+        filtered.size();
+      };
+      case (null) { 0 };
+    };
+  };
+
+  // Get total unread messages count for a user across all conversations
+  public query ({ caller }) func getTotalUnreadCount(userId : Text) : async Nat {
+    // Verify caller owns userId or is admin
+    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only view your own messages");
+    };
+
+    var totalUnread : Nat = 0;
+    for ((key, msgs) in messages.entries()) {
+      // Check if this conversation involves the user
+      let parts = key.split(#char '-').toArray();
+      if (parts.size() == 2 and parts[0] == userId) {
+        let filtered = msgs.toArray().filter(
+          func(msg) {
+            msg.recipient == userId and not msg.seen
+          }
+        );
+        totalUnread += filtered.size();
+      };
+    };
+    totalUnread;
+  };
+
+  // Delete a single message by timestamp (deletes from both sides)
+  public shared ({ caller }) func deleteMessage(userId : Text, otherUserId : Text, timestamp : Time.Time) : async () {
+    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only delete your own messages");
+    };
+
+    // Remove from userId's side
+    let key1 = userId # "-" # otherUserId;
+    switch (messages.get(key1)) {
+      case (?msgs) {
+        let updated = List.empty<Message>();
+        for (msg in msgs.values()) {
+          if (msg.timestamp != timestamp) {
+            updated.add(msg);
+          };
+        };
+        messages.add(key1, updated);
+      };
+      case (null) {};
+    };
+
+    // Remove from otherUserId's side
+    let key2 = otherUserId # "-" # userId;
+    switch (messages.get(key2)) {
+      case (?msgs) {
+        let updated = List.empty<Message>();
+        for (msg in msgs.values()) {
+          if (msg.timestamp != timestamp) {
+            updated.add(msg);
+          };
+        };
+        messages.add(key2, updated);
+      };
+      case (null) {};
+    };
+  };
+
+  // Delete entire conversation (both sides)
+  public shared ({ caller }) func deleteConversation(userId : Text, otherUserId : Text) : async () {
+    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Can only delete your own conversations");
+    };
+
+    let key1 = userId # "-" # otherUserId;
+    messages.remove(key1);
+
+    let key2 = otherUserId # "-" # userId;
+    messages.remove(key2);
+  };
+
+  // Admin Broadcast - send message from "system" to all users
+  public shared ({ caller }) func broadcastMessage(text : Text) : async () {
+    if (not (Auth.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can broadcast messages");
+    };
+
+    let allUsers = users.values().toArray();
+    for (user in allUsers.values()) {
+      let message : Message = {
+        sender = "system";
+        recipient = user.id;
+        text;
+        timestamp = Time.now();
+        seen = false;
+      };
+
+      // Store in recipient's conversation with system
+      let conversationKey = user.id # "-system";
+      let userMessages = messages.get(conversationKey);
+      let updatedMessages = switch (userMessages) {
+        case (?msgs) {
+          msgs.add(message);
+          msgs;
+        };
+        case (null) {
+          let newList = List.empty<Message>();
+          newList.add(message);
+          newList;
+        };
+      };
+      messages.add(conversationKey, updatedMessages);
+    };
+  };
 };

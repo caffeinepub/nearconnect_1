@@ -1,6 +1,7 @@
-import { ArrowLeft, CornerUpLeft, Send, X } from "lucide-react";
+import { ArrowLeft, CornerUpLeft, Send, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
+import { createActorWithConfig } from "../config";
 import { type Message, useApp } from "../context/AppContext";
 
 interface ChatPageProps {
@@ -36,13 +37,13 @@ function TypingIndicator() {
 function getBotReply(text: string): string {
   const lower = text.toLowerCase();
   if (/\b(hi|hello|hey)\b/.test(lower)) {
-    return "Hey there! 👋 I'm NearBot, your NearConnect assistant! How can I help you today?";
+    return "Hey there! 👋 I'm VibeBot, your VibeZone assistant! How can I help you today?";
   }
   if (lower.includes("help")) {
-    return "I can help you find nearby friends, manage your profile, or answer questions about NearConnect! What do you need?";
+    return "I can help you find nearby friends, manage your profile, or answer questions about VibeZone! What do you need?";
   }
   if (lower.includes("how") && lower.includes("work")) {
-    return "NearConnect uses your location to show you friends within your selected radius. Upgrade your radius tier to find more people!";
+    return "VibeZone uses your location to show you friends within your selected radius. Upgrade your radius tier to find more people!";
   }
   if (lower.includes("radius") || lower.includes("upgrade")) {
     return "Your current radius determines how far away friends appear. Go to Settings > Upgrade Radius to expand it up to 10km!";
@@ -51,10 +52,10 @@ function getBotReply(text: string): string {
     (lower.includes("friend") && lower.includes("add")) ||
     (lower.includes("how") && lower.includes("find"))
   ) {
-    return "Go to the Search tab to find people by username or ID, then tap Add to send them a friend request!";
+    return "Go to the Search tab to find people by username or ID, then start chatting with them!";
   }
   if (lower.includes("location") || lower.includes("permission")) {
-    return "Please allow location access so NearConnect can show you nearby friends in real time!";
+    return "Please allow location access so VibeZone can show you nearby friends in real time!";
   }
   if (lower.includes("admin")) {
     return "The admin portal is only accessible to administrators. If you need help, contact support!";
@@ -64,16 +65,192 @@ function getBotReply(text: string): string {
     "That's interesting! Tell me more.",
     "I'm here if you need anything!",
     "Try exploring the app — there's a lot to discover!",
-    "Feel free to ask me anything about NearConnect!",
+    "Feel free to ask me anything about VibeZone!",
   ];
   return defaults[Math.floor(Math.random() * defaults.length)];
 }
 
+interface MsgMenuProps {
+  onDelete: () => void;
+  onClose: () => void;
+  x: number;
+  y: number;
+}
+
+function MsgMenu({ onDelete, onClose, x, y }: MsgMenuProps) {
+  useEffect(() => {
+    const handler = () => onClose();
+    document.addEventListener("click", handler, { once: true });
+    return () => document.removeEventListener("click", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: y,
+        left: x,
+        zIndex: 1000,
+        background: "rgba(20,20,35,0.97)",
+        backdropFilter: "blur(12px)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        borderRadius: 10,
+        overflow: "hidden",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+        minWidth: 130,
+      }}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        data-ocid="chat.delete_button"
+        onClick={onDelete}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "11px 16px",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: "oklch(0.7 0.2 15)",
+          fontSize: 13,
+          fontWeight: 600,
+        }}
+      >
+        <Trash2 size={14} />
+        Delete
+      </button>
+    </div>
+  );
+}
+
+interface DeleteConvDialogProps {
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function DeleteConvDialog({ onConfirm, onCancel }: DeleteConvDialogProps) {
+  return (
+    <div
+      data-ocid="chat.dialog"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.6)",
+        backdropFilter: "blur(4px)",
+      }}
+    >
+      <div
+        style={{
+          background: "rgba(20,20,35,0.97)",
+          backdropFilter: "blur(16px)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 18,
+          padding: "28px 28px 22px",
+          maxWidth: 300,
+          width: "90%",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+        }}
+      >
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: "oklch(0.35 0.18 15 / 0.3)",
+            border: "1px solid oklch(0.5 0.2 15 / 0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 14,
+          }}
+        >
+          <Trash2 size={20} style={{ color: "oklch(0.7 0.2 15)" }} />
+        </div>
+        <p
+          style={{
+            margin: "0 0 6px",
+            fontWeight: 700,
+            fontSize: 16,
+            color: "white",
+          }}
+        >
+          Delete conversation?
+        </p>
+        <p
+          style={{
+            margin: "0 0 22px",
+            fontSize: 13,
+            color: "rgba(255,255,255,0.45)",
+            lineHeight: 1.5,
+          }}
+        >
+          This will remove all messages locally. This action cannot be undone.
+        </p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            type="button"
+            data-ocid="chat.cancel_button"
+            onClick={onCancel}
+            style={{
+              flex: 1,
+              padding: "10px",
+              borderRadius: 12,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "rgba(255,255,255,0.7)",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            data-ocid="chat.confirm_button"
+            onClick={onConfirm}
+            style={{
+              flex: 1,
+              padding: "10px",
+              borderRadius: 12,
+              background: "oklch(0.42 0.22 15)",
+              border: "none",
+              color: "white",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ChatPage({ friendId, onBack }: ChatPageProps) {
-  const { friends, getConversation, sendMessage, receiveMessage, theme } =
-    useApp();
+  const {
+    friends,
+    getConversation,
+    sendMessage,
+    receiveMessage,
+    fetchConversation,
+    deleteMessage,
+    deleteConversation,
+    theme,
+    currentUser,
+  } = useApp();
   const friend = friends.find((f) => f.id === friendId);
-  const isBot = friendId === "bot_nearconnect";
+  const isBot = friendId === "bot_vibezone";
   const [messages, setMessages] = useState<Message[]>(() =>
     getConversation(friendId),
   );
@@ -81,9 +258,17 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [sendPulse, setSendPulse] = useState(false);
+  const [msgMenu, setMsgMenu] = useState<{
+    msg: Message;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [showDeleteConvDialog, setShowDeleteConvDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const swipeStartX = useRef<number>(0);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isLight = theme === "light-clean";
   const messagesLen = messages.length;
 
@@ -91,6 +276,42 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messagesLen, isTyping]);
+
+  // Poll backend for new messages every 3 seconds (non-bot chats only)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: stable function refs
+  useEffect(() => {
+    if (isBot) return;
+
+    const poll = async () => {
+      const merged = await fetchConversation(friendId);
+      setMessages(merged);
+    };
+
+    // Initial fetch
+    poll();
+
+    pollRef.current = setInterval(poll, 3000);
+    return () => {
+      if (pollRef.current !== null) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [friendId, isBot]);
+
+  // Mark messages as seen when chat is opened
+  useEffect(() => {
+    if (isBot || !currentUser?.id) return;
+    const markSeen = async () => {
+      try {
+        const actor = await createActorWithConfig();
+        await actor.markConversationSeen(currentUser.id, friendId);
+      } catch {
+        // silent
+      }
+    };
+    markSeen();
+  }, [friendId, isBot, currentUser?.id]);
 
   const handleBotReply = useCallback(
     (userText: string) => {
@@ -114,30 +335,6 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
     [friendId, receiveMessage],
   );
 
-  const simulateFriendTyping = useCallback(
-    (responseText: string) => {
-      setIsTyping(true);
-      let displayed = "";
-      let i = 0;
-      const interval = setInterval(() => {
-        displayed += responseText[i];
-        i++;
-        if (i >= responseText.length) {
-          clearInterval(interval);
-          setIsTyping(false);
-          const newMsg: Message = {
-            id: `auto_${Date.now()}`,
-            senderId: friendId,
-            text: displayed,
-            timestamp: Date.now(),
-          };
-          setMessages((prev) => [...prev, newMsg]);
-        }
-      }, 45);
-    },
-    [friendId],
-  );
-
   const handleSend = useCallback(() => {
     if (!input.trim()) return;
     const text = input.trim();
@@ -157,38 +354,54 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
 
     if (isBot) {
       handleBotReply(text);
-    } else {
-      const replies = [
-        "Sounds great! 👌",
-        "Yeah, totally agree!",
-        "Let me check and get back to you 🤔",
-        "That's awesome! 🔥",
-        "Sure thing!",
-        "On my way! 🚀",
-        "Haha yes exactly 😄",
-      ];
-      const reply = replies[Math.floor(Math.random() * replies.length)];
-      setTimeout(() => simulateFriendTyping(reply), 800 + Math.random() * 1200);
     }
-  }, [
-    input,
-    replyTo,
-    friendId,
-    sendMessage,
-    isBot,
-    handleBotReply,
-    simulateFriendTyping,
-  ]);
+  }, [input, replyTo, friendId, sendMessage, isBot, handleBotReply]);
 
-  const handleTouchStart = (e: React.TouchEvent, _msg: Message) => {
+  const handleTouchStart = (e: React.TouchEvent, msg: Message) => {
     swipeStartX.current = e.touches[0].clientX;
+    // Long press for delete menu
+    longPressTimer.current = setTimeout(() => {
+      if (msg.senderId === "me") {
+        const touch = e.touches[0];
+        setMsgMenu({
+          msg,
+          x: Math.min(touch.clientX, window.innerWidth - 150),
+          y: touch.clientY,
+        });
+      }
+    }, 600);
   };
+
   const handleTouchEnd = (e: React.TouchEvent, msg: Message) => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
     const dx = e.changedTouches[0].clientX - swipeStartX.current;
     if (dx > 50) {
       setReplyTo(msg);
       inputRef.current?.focus();
     }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, msg: Message) => {
+    if (msg.senderId !== "me") return;
+    e.preventDefault();
+    const x = Math.min(e.clientX, window.innerWidth - 150);
+    const y = Math.min(e.clientY, window.innerHeight - 80);
+    setMsgMenu({ msg, x, y });
+  };
+
+  const handleDeleteMsg = (msg: Message) => {
+    deleteMessage(friendId, msg.id);
+    setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+    setMsgMenu(null);
+  };
+
+  const handleDeleteConversation = () => {
+    deleteConversation(friendId);
+    setShowDeleteConvDialog(false);
+    onBack();
   };
 
   return (
@@ -203,6 +416,24 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
       }}
     >
       <LiquidFluxBg />
+
+      {/* Message context menu */}
+      {msgMenu && (
+        <MsgMenu
+          x={msgMenu.x}
+          y={msgMenu.y}
+          onDelete={() => handleDeleteMsg(msgMenu.msg)}
+          onClose={() => setMsgMenu(null)}
+        />
+      )}
+
+      {/* Delete conversation dialog */}
+      {showDeleteConvDialog && (
+        <DeleteConvDialog
+          onConfirm={handleDeleteConversation}
+          onCancel={() => setShowDeleteConvDialog(false)}
+        />
+      )}
 
       {/* Header */}
       <div
@@ -285,15 +516,35 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
               color: isLight ? "#888" : "rgba(255,255,255,0.4)",
             }}
           >
-            {isTyping
+            {isTyping && isBot
               ? "typing..."
               : isBot
-                ? "NearConnect Bot · Always Online"
+                ? "VibeBot · Always Online"
                 : friend?.online
                   ? "Online"
                   : friend?.lastSeen || "Offline"}
           </p>
         </div>
+        {/* Delete conversation button */}
+        <button
+          type="button"
+          data-ocid="chat.delete_button"
+          onClick={() => setShowDeleteConvDialog(true)}
+          title="Delete conversation"
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: 6,
+            color: "rgba(255,255,255,0.35)",
+            borderRadius: 8,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Trash2 size={18} />
+        </button>
       </div>
 
       {/* Messages */}
@@ -310,11 +561,29 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
           gap: 6,
         }}
       >
+        {messages.length === 0 && (
+          <div
+            data-ocid="chat.empty_state"
+            style={{
+              textAlign: "center",
+              color: "rgba(255,255,255,0.3)",
+              fontSize: 13,
+              marginTop: 40,
+            }}
+          >
+            {isBot ? "Say hi to VibeBot! 👋" : "No messages yet. Say hello! 👋"}
+          </div>
+        )}
         {messages.map((msg, i) => {
           const isMine = msg.senderId === "me";
           const replyMsg = msg.replyTo
             ? messages.find((m) => m.id === msg.replyTo)
             : null;
+          // Find the last sent (mine) message index for seen indicator
+          const lastMineIdx = messages.reduce(
+            (acc, m, idx) => (m.senderId === "me" ? idx : acc),
+            -1,
+          );
           return (
             <div
               key={msg.id}
@@ -322,6 +591,7 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
               className={isMine ? "bubble-in-right" : "bubble-in-left"}
               onTouchStart={(e) => handleTouchStart(e, msg)}
               onTouchEnd={(e) => handleTouchEnd(e, msg)}
+              onContextMenu={(e) => handleContextMenu(e, msg)}
               style={{
                 display: "flex",
                 flexDirection: "column",
@@ -368,21 +638,81 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
               >
                 {msg.text}
               </div>
-              <span
+              <div
                 style={{
-                  fontSize: 10,
-                  color: "rgba(255,255,255,0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  justifyContent: isMine ? "flex-end" : "flex-start",
                   marginTop: 3,
                   paddingInline: 4,
                 }}
               >
-                {formatTime(msg.timestamp)}
-              </span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    color: "rgba(255,255,255,0.3)",
+                  }}
+                >
+                  {formatTime(msg.timestamp)}
+                </span>
+                {isMine && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: msg.seen
+                        ? "oklch(0.78 0.2 200)"
+                        : "rgba(255,255,255,0.3)",
+                      fontWeight: 700,
+                      transition: "color 0.4s ease",
+                    }}
+                  >
+                    {msg.seen ? "✓✓" : "✓"}
+                  </span>
+                )}
+              </div>
+              {/* Animated seen avatar on last sent message when seen */}
+              {isMine && i === lastMineIdx && msg.seen && friend && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    marginTop: 4,
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <span
+                    style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}
+                  >
+                    Seen
+                  </span>
+                  <div
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      background:
+                        "linear-gradient(135deg, oklch(0.5 0.25 200), oklch(0.65 0.2 200))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 9,
+                      fontWeight: 700,
+                      color: "white",
+                      animation: "seenPulse 2s ease-in-out infinite",
+                      boxShadow: "0 0 8px oklch(0.65 0.2 200 / 0.8)",
+                    }}
+                  >
+                    {friend.displayName[0]}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
 
-        {isTyping && (
+        {isTyping && isBot && (
           <div style={{ display: "flex", justifyContent: "flex-start" }}>
             <div
               className="glass-card"
@@ -465,7 +795,7 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder={isBot ? "Ask NearBot anything..." : "Message..."}
+          placeholder={isBot ? "Ask VibeBot anything..." : "Message..."}
           style={{
             flex: 1,
             background: isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.07)",

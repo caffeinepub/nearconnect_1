@@ -51,6 +51,13 @@ export const UserProfile = IDL.Record({
   'location' : IDL.Opt(Location),
   'online' : IDL.Bool,
 });
+export const Message = IDL.Record({
+  'seen' : IDL.Bool,
+  'text' : IDL.Text,
+  'recipient' : IDL.Text,
+  'sender' : IDL.Text,
+  'timestamp' : Time,
+});
 export const Coordinates = IDL.Record({
   'latitude' : IDL.Text,
   'longitude' : IDL.Text,
@@ -105,6 +112,7 @@ export const LocationInput = IDL.Record({
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'broadcastMessage' : IDL.Func([IDL.Text], [], []),
   'createCheckoutSession' : IDL.Func(
       [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
       [IDL.Text],
@@ -115,11 +123,23 @@ export const idlService = IDL.Service({
   'getAllUsers' : IDL.Func([], [IDL.Vec(User)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getConversation' : IDL.Func(
+      [IDL.Text, IDL.Text],
+      [IDL.Vec(Message)],
+      ['query'],
+    ),
   'getCoordinates' : IDL.Func([], [IDL.Opt(Coordinates)], ['query']),
   'getFollowers' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
   'getFollowing' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
+  'getNewMessages' : IDL.Func(
+      [IDL.Text, IDL.Text, Time],
+      [IDL.Vec(Message)],
+      ['query'],
+    ),
   'getPurchaseSettings' : IDL.Func([], [PurchaseSettings], ['query']),
   'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
+  'getTotalUnreadCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
+  'getUnreadCount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Nat], ['query']),
   'getUserById' : IDL.Func([IDL.Text], [IDL.Opt(User)], ['query']),
   'getUserByUsername' : IDL.Func([IDL.Text], [IDL.Opt(User)], ['query']),
   'getUserProfile' : IDL.Func(
@@ -129,9 +149,11 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
+  'markConversationSeen' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'register' : IDL.Func([UserInput], [User], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'saveCoordinates' : IDL.Func([Coordinates], [], []),
+  'sendMessage' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
   'setOnlineStatus' : IDL.Func([IDL.Text, IDL.Bool], [User], []),
   'setPurchaseSettings' : IDL.Func([PurchaseSettings], [], []),
   'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
@@ -143,6 +165,7 @@ export const idlService = IDL.Service({
   'unfollow' : IDL.Func([IDL.Text], [IDL.Text], []),
   'updateLocation' : IDL.Func([IDL.Text, LocationInput], [User], []),
   'updateSettings' : IDL.Func([IDL.Text, UserSettings], [User], []),
+  'updateUserRadiusTier' : IDL.Func([IDL.Text, IDL.Nat], [User], []),
   'verifyCredentials' : IDL.Func(
       [IDL.Text, IDL.Text],
       [IDL.Opt(User)],
@@ -196,6 +219,13 @@ export const idlFactory = ({ IDL }) => {
     'location' : IDL.Opt(Location),
     'online' : IDL.Bool,
   });
+  const Message = IDL.Record({
+    'seen' : IDL.Bool,
+    'text' : IDL.Text,
+    'recipient' : IDL.Text,
+    'sender' : IDL.Text,
+    'timestamp' : Time,
+  });
   const Coordinates = IDL.Record({
     'latitude' : IDL.Text,
     'longitude' : IDL.Text,
@@ -247,6 +277,7 @@ export const idlFactory = ({ IDL }) => {
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'broadcastMessage' : IDL.Func([IDL.Text], [], []),
     'createCheckoutSession' : IDL.Func(
         [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
         [IDL.Text],
@@ -257,11 +288,23 @@ export const idlFactory = ({ IDL }) => {
     'getAllUsers' : IDL.Func([], [IDL.Vec(User)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getConversation' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Vec(Message)],
+        ['query'],
+      ),
     'getCoordinates' : IDL.Func([], [IDL.Opt(Coordinates)], ['query']),
     'getFollowers' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
     'getFollowing' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
+    'getNewMessages' : IDL.Func(
+        [IDL.Text, IDL.Text, Time],
+        [IDL.Vec(Message)],
+        ['query'],
+      ),
     'getPurchaseSettings' : IDL.Func([], [PurchaseSettings], ['query']),
     'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
+    'getTotalUnreadCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
+    'getUnreadCount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Nat], ['query']),
     'getUserById' : IDL.Func([IDL.Text], [IDL.Opt(User)], ['query']),
     'getUserByUsername' : IDL.Func([IDL.Text], [IDL.Opt(User)], ['query']),
     'getUserProfile' : IDL.Func(
@@ -271,9 +314,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
+    'markConversationSeen' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'register' : IDL.Func([UserInput], [User], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'saveCoordinates' : IDL.Func([Coordinates], [], []),
+    'sendMessage' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
     'setOnlineStatus' : IDL.Func([IDL.Text, IDL.Bool], [User], []),
     'setPurchaseSettings' : IDL.Func([PurchaseSettings], [], []),
     'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
@@ -285,6 +330,7 @@ export const idlFactory = ({ IDL }) => {
     'unfollow' : IDL.Func([IDL.Text], [IDL.Text], []),
     'updateLocation' : IDL.Func([IDL.Text, LocationInput], [User], []),
     'updateSettings' : IDL.Func([IDL.Text, UserSettings], [User], []),
+    'updateUserRadiusTier' : IDL.Func([IDL.Text, IDL.Nat], [User], []),
     'verifyCredentials' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Opt(User)],

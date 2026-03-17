@@ -60,6 +60,8 @@ export interface Message {
   text: string;
   timestamp: number;
   replyTo?: string;
+  seen?: boolean;
+  backendTimestamp?: number;
 }
 
 export interface Conversation {
@@ -190,6 +192,7 @@ interface AppContextValue {
   allUsers: FriendUser[];
   getConversation: (friendId: string) => Message[];
   sendMessage: (friendId: string, text: string, replyTo?: string) => void;
+  fetchConversation: (friendId: string) => Promise<Message[]>;
   receiveMessage: (friendId: string, text: string) => void;
   friendRequests: FriendRequest[];
   sendFriendRequest: (toId: string) => void;
@@ -206,6 +209,8 @@ interface AppContextValue {
   grantPurchaseToUser: (userId: string, tier: RadiusTier) => Promise<void>;
   savedAccounts: SavedAccount[];
   switchAccount: (username: string, password: string) => Promise<boolean>;
+  deleteMessage: (friendId: string, msgId: string) => void;
+  deleteConversation: (friendId: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -239,6 +244,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     useState<PurchaseSettings | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const backendPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Keep a ref to conversations so fetchConversation can merge without stale closure
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
 
   const persistConversations = (updated: Record<string, Message[]>) => {
     localStorage.setItem("nc_conversations", JSON.stringify(updated));
@@ -506,6 +515,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const sendMessage = (friendId: string, text: string, replyTo?: string) => {
+    if (!currentUser) return;
     const msg: Message = {
       id: `msg_${Date.now()}`,
       senderId: "me",
@@ -521,6 +531,56 @@ export function AppProvider({ children }: { children: ReactNode }) {
       persistConversations(updated);
       return updated;
     });
+    // For real users (not bot), also send to backend
+    if (friendId !== "bot_vibezone") {
+      getActor()
+        .then((actor) => actor.sendMessage(currentUser.id, friendId, text))
+        .catch(() => {});
+    }
+  };
+
+  const fetchConversation = async (friendId: string): Promise<Message[]> => {
+    if (!currentUser || friendId === "bot_vibezone") {
+      return conversationsRef.current[friendId] || [];
+    }
+    try {
+      const actor = await getActor();
+      const backendMsgs = await actor.getConversation(currentUser.id, friendId);
+      // Map backend messages to local Message format
+      const mapped: Message[] = backendMsgs.map((m) => ({
+        id: `${m.sender}_${m.timestamp}`,
+        senderId: m.sender === currentUser.id ? "me" : m.sender,
+        text: m.text,
+        timestamp: Number(m.timestamp) / 1_000_000,
+        seen: m.seen,
+        backendTimestamp: Number(m.timestamp),
+      }));
+      // Merge with local messages (keep local sent messages that may not be in backend yet)
+      const local = conversationsRef.current[friendId] || [];
+      // Deduplicate: prefer backend version; match by exact timestamp or same text within 1s
+      const merged: Message[] = [...mapped];
+      for (const localMsg of local) {
+        const isDuplicate = mapped.some(
+          (bMsg) =>
+            bMsg.text === localMsg.text &&
+            Math.abs(bMsg.timestamp - localMsg.timestamp) < 2000,
+        );
+        if (!isDuplicate) {
+          merged.push(localMsg);
+        }
+      }
+      // Sort by timestamp
+      merged.sort((a, b) => a.timestamp - b.timestamp);
+      // Update local state
+      setConversations((prev) => {
+        const updated = { ...prev, [friendId]: merged };
+        persistConversations(updated);
+        return updated;
+      });
+      return merged;
+    } catch {
+      return conversationsRef.current[friendId] || [];
+    }
   };
 
   const receiveMessage = (friendId: string, text: string) => {
@@ -535,6 +595,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...prev,
         [friendId]: [...(prev[friendId] || []), msg],
       };
+      persistConversations(updated);
+      return updated;
+    });
+  };
+
+  const deleteMessage = (friendId: string, msgId: string) => {
+    setConversations((prev) => {
+      const updated = {
+        ...prev,
+        [friendId]: (prev[friendId] || []).filter((m) => m.id !== msgId),
+      };
+      persistConversations(updated);
+      return updated;
+    });
+  };
+
+  const deleteConversation = (friendId: string) => {
+    setConversations((prev) => {
+      const updated = { ...prev };
+      delete updated[friendId];
       persistConversations(updated);
       return updated;
     });
@@ -598,8 +678,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   };
 
+  const tierToNumber: Record<RadiusTier, bigint> = {
+    free: 0n,
+    basic: 1n,
+    standard: 2n,
+    premium: 3n,
+  };
+
   const grantPurchaseToUser = async (userId: string, tier: RadiusTier) => {
-    // Update local user list state optimistically
+    // Call backend to persist tier change
+    const actor = await getActor();
+    await actor.updateUserRadiusTier(userId, tierToNumber[tier]);
+    // Update local user list state
     setUsers((prev) =>
       prev.map((u) => (u.id === userId ? { ...u, radiusTier: tier } : u)),
     );
@@ -655,6 +745,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         allRealUsers: users,
         getConversation,
         sendMessage,
+        fetchConversation,
         receiveMessage,
         friendRequests,
         sendFriendRequest,
@@ -670,6 +761,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         grantPurchaseToUser,
         savedAccounts,
         switchAccount,
+        deleteMessage,
+        deleteConversation,
       }}
     >
       {children}

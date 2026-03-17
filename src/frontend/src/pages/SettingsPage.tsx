@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { BottomNav } from "../components/BottomNav";
+import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
 import { RADIUS_LABELS, type RadiusTier, useApp } from "../context/AppContext";
 
@@ -419,6 +420,7 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
           Sign Out
         </Button>
       </div>
+      <DevFooter />
       <BottomNav active="settings" onNavigate={onNavigate} />
     </div>
   );

@@ -308,3 +308,15 @@
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: oklch(0.4 0.1 280); border-radius: 4px; }
+
+/* ===== Unread badge pulse ===== */
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 8px oklch(0.6 0.28 25 / 0.7); }
+  50% { transform: scale(1.15); box-shadow: 0 0 14px oklch(0.6 0.28 25 / 0.9); }
+}
+
+/* ===== Seen circle pulse ===== */
+@keyframes seenPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 6px oklch(0.65 0.2 200 / 0.6); }
+  50% { transform: scale(1.2); box-shadow: 0 0 12px oklch(0.65 0.2 200 / 0.9); }
+}

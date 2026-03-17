@@ -138,6 +138,13 @@ export interface TransformationInput {
     context: Uint8Array;
     response: http_request_result;
 }
+export interface Message {
+    seen: boolean;
+    text: string;
+    recipient: string;
+    sender: string;
+    timestamp: Time;
+}
 export interface UserSettings {
     notifications: boolean;
     showOnlineStatus: boolean;
@@ -190,25 +197,32 @@ export enum UserRole {
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    broadcastMessage(text: string): Promise<void>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     deleteUser(userId: string): Promise<void>;
     follow(username: string): Promise<string>;
     getAllUsers(): Promise<Array<User>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getConversation(userId: string, otherUserId: string): Promise<Array<Message>>;
     getCoordinates(): Promise<Coordinates | null>;
     getFollowers(username: string): Promise<Array<string>>;
     getFollowing(username: string): Promise<Array<string>>;
+    getNewMessages(userId: string, otherUserId: string, lastTimestamp: Time): Promise<Array<Message>>;
     getPurchaseSettings(): Promise<PurchaseSettings>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
+    getTotalUnreadCount(userId: string): Promise<bigint>;
+    getUnreadCount(userId: string, otherUserId: string): Promise<bigint>;
     getUserById(userId: string): Promise<User | null>;
     getUserByUsername(username: string): Promise<User | null>;
     getUserProfile(userPrincipal: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     isStripeConfigured(): Promise<boolean>;
+    markConversationSeen(userId: string, otherUserId: string): Promise<void>;
     register(input: UserInput): Promise<User>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     saveCoordinates(coordinates: Coordinates): Promise<void>;
+    sendMessage(sender: string, recipient: string, text: string): Promise<void>;
     setOnlineStatus(userId: string, online: boolean): Promise<User>;
     setPurchaseSettings(settings: PurchaseSettings): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
@@ -216,6 +230,7 @@ export interface backendInterface {
     unfollow(username: string): Promise<string>;
     updateLocation(userId: string, location: LocationInput): Promise<User>;
     updateSettings(userId: string, settings: UserSettings): Promise<User>;
+    updateUserRadiusTier(userId: string, tier: bigint): Promise<User>;
     verifyCredentials(username: string, passwordHash: string): Promise<User | null>;
 }
 import type { Coordinates as _Coordinates, Location as _Location, StripeSessionStatus as _StripeSessionStatus, Time as _Time, User as _User, UserProfile as _UserProfile, UserRole as _UserRole, UserSettings as _UserSettings } from "./declarations/backend.did.d.ts";
@@ -246,6 +261,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
+            return result;
+        }
+    }
+    async broadcastMessage(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.broadcastMessage(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.broadcastMessage(arg0);
             return result;
         }
     }
@@ -333,6 +362,20 @@ export class Backend implements backendInterface {
             return from_candid_UserRole_n9(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getConversation(arg0: string, arg1: string): Promise<Array<Message>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getConversation(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getConversation(arg0, arg1);
+            return result;
+        }
+    }
     async getCoordinates(): Promise<Coordinates | null> {
         if (this.processError) {
             try {
@@ -375,6 +418,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getNewMessages(arg0: string, arg1: string, arg2: Time): Promise<Array<Message>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getNewMessages(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getNewMessages(arg0, arg1, arg2);
+            return result;
+        }
+    }
     async getPurchaseSettings(): Promise<PurchaseSettings> {
         if (this.processError) {
             try {
@@ -401,6 +458,34 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getStripeSessionStatus(arg0);
             return from_candid_StripeSessionStatus_n12(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getTotalUnreadCount(arg0: string): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getTotalUnreadCount(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getTotalUnreadCount(arg0);
+            return result;
+        }
+    }
+    async getUnreadCount(arg0: string, arg1: string): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getUnreadCount(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getUnreadCount(arg0, arg1);
+            return result;
         }
     }
     async getUserById(arg0: string): Promise<User | null> {
@@ -473,6 +558,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async markConversationSeen(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.markConversationSeen(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.markConversationSeen(arg0, arg1);
+            return result;
+        }
+    }
     async register(arg0: UserInput): Promise<User> {
         if (this.processError) {
             try {
@@ -512,6 +611,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.saveCoordinates(arg0);
+            return result;
+        }
+    }
+    async sendMessage(arg0: string, arg1: string, arg2: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.sendMessage(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.sendMessage(arg0, arg1, arg2);
             return result;
         }
     }
@@ -610,6 +723,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateSettings(arg0, arg1);
+            return from_candid_User_n4(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async updateUserRadiusTier(arg0: string, arg1: bigint): Promise<User> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateUserRadiusTier(arg0, arg1);
+                return from_candid_User_n4(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateUserRadiusTier(arg0, arg1);
             return from_candid_User_n4(this._uploadFile, this._downloadFile, result);
         }
     }

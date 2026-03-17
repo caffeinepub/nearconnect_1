@@ -15,13 +15,16 @@ import {
   DollarSign,
   Gift,
   Loader2,
+  Megaphone,
   Shield,
   ShoppingCart,
   Trash2,
   UserCheck,
 } from "lucide-react";
 import { useState } from "react";
+import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
+import { createActorWithConfig } from "../config";
 import { type RadiusTier, useApp } from "../context/AppContext";
 
 interface AdminPageProps {
@@ -103,6 +106,25 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
+  const [broadcastText, setBroadcastText] = useState("");
+  const [broadcastStatus, setBroadcastStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+
+  const handleBroadcast = async () => {
+    if (!broadcastText.trim()) return;
+    setBroadcastStatus("loading");
+    try {
+      const actor = await createActorWithConfig();
+      await actor.broadcastMessage(broadcastText.trim());
+      setBroadcastText("");
+      setBroadcastStatus("success");
+      setTimeout(() => setBroadcastStatus("idle"), 2500);
+    } catch {
+      setBroadcastStatus("error");
+      setTimeout(() => setBroadcastStatus("idle"), 3000);
+    }
+  };
 
   const displayUsers = allRealUsers.filter((u) => !u.isBot);
 
@@ -805,6 +827,130 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
           )}
         </div>
 
+        {/* Broadcast Section */}
+        <div
+          data-ocid="admin.broadcast.section"
+          style={{
+            marginTop: 28,
+            background: isLight ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.04)",
+            border: `1px solid ${isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)"}`,
+            borderRadius: 18,
+            padding: "20px 18px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                background:
+                  "linear-gradient(135deg, oklch(0.5 0.25 30), oklch(0.65 0.2 50))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Megaphone size={16} style={{ color: "white" }} />
+            </div>
+            <div>
+              <h2
+                style={{
+                  fontFamily: "'Bricolage Grotesque', sans-serif",
+                  fontSize: 17,
+                  fontWeight: 700,
+                  color: isLight ? "#111" : "white",
+                  margin: 0,
+                }}
+              >
+                Broadcast Message
+              </h2>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  color: isLight ? "#888" : "rgba(255,255,255,0.4)",
+                }}
+              >
+                Send a message to all users
+              </p>
+            </div>
+          </div>
+          <textarea
+            data-ocid="admin.broadcast.textarea"
+            value={broadcastText}
+            onChange={(e) => setBroadcastText(e.target.value)}
+            placeholder="Type a broadcast message to all users..."
+            rows={3}
+            style={{
+              width: "100%",
+              background: isLight
+                ? "rgba(0,0,0,0.05)"
+                : "rgba(255,255,255,0.07)",
+              border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.12)"}`,
+              borderRadius: 12,
+              padding: "10px 14px",
+              fontSize: 14,
+              color: isLight ? "#111" : "white",
+              outline: "none",
+              resize: "none",
+              boxSizing: "border-box",
+              fontFamily: "inherit",
+            }}
+          />
+          <Button
+            data-ocid="admin.broadcast.submit_button"
+            onClick={handleBroadcast}
+            disabled={broadcastStatus === "loading" || !broadcastText.trim()}
+            style={{
+              marginTop: 10,
+              width: "100%",
+              borderRadius: 12,
+              background:
+                broadcastStatus === "success"
+                  ? "linear-gradient(135deg, oklch(0.5 0.2 145), oklch(0.65 0.18 160))"
+                  : broadcastStatus === "error"
+                    ? "linear-gradient(135deg, oklch(0.45 0.25 30), oklch(0.6 0.2 50))"
+                    : "linear-gradient(135deg, oklch(0.5 0.25 30), oklch(0.65 0.2 50))",
+              border: "none",
+              color: "white",
+              fontWeight: 600,
+              fontSize: 14,
+              padding: "11px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 7,
+              transition: "background 0.3s",
+            }}
+          >
+            {broadcastStatus === "loading" && (
+              <Loader2
+                size={15}
+                style={{ animation: "spin 0.8s linear infinite" }}
+              />
+            )}
+            {broadcastStatus === "success" && <CheckCircle2 size={15} />}
+            {broadcastStatus === "error" && <AlertTriangle size={15} />}
+            {broadcastStatus === "loading"
+              ? "Sending..."
+              : broadcastStatus === "success"
+                ? "Sent!"
+                : broadcastStatus === "error"
+                  ? "Failed"
+                  : "Send to All Users"}
+          </Button>
+        </div>
+
+        <DevFooter />
         <div style={{ height: 24 }} />
       </div>
     </div>

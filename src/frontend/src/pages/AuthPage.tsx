@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Plus, UserCircle2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
 import { type SavedAccount, useApp } from "../context/AppContext";
 
@@ -792,6 +793,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
         >
           Made with ❤️ by Ankush Singh · 2026 · All rights reserved
         </p>
+        <DevFooter />
       </div>
     </div>
   );
