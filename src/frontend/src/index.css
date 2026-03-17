@@ -1,0 +1,408 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/BricolageGrotesque.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Figtree";
+  src: url("/assets/fonts/Figtree.woff2") format("woff2");
+  font-weight: 300 900;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 1rem;
+
+    /* Liquid Flux default */
+    --background: 0.09 0.02 280;
+    --foreground: 0.95 0.02 280;
+    --card: 0.14 0.03 280;
+    --card-foreground: 0.95 0.02 280;
+    --popover: 0.12 0.03 280;
+    --popover-foreground: 0.95 0.02 280;
+    --primary: 0.8 0.15 200;
+    --primary-foreground: 0.09 0.02 280;
+    --secondary: 0.2 0.05 280;
+    --secondary-foreground: 0.95 0.02 280;
+    --muted: 0.18 0.03 280;
+    --muted-foreground: 0.65 0.05 280;
+    --accent: 0.75 0.18 310;
+    --accent-foreground: 0.09 0.02 280;
+    --destructive: 0.65 0.22 25;
+    --destructive-foreground: 0.98 0 0;
+    --border: 0.3 0.05 280;
+    --input: 0.2 0.04 280;
+    --ring: 0.8 0.15 200;
+
+    --chart-1: 0.8 0.15 200;
+    --chart-2: 0.75 0.18 310;
+    --chart-3: 0.7 0.2 250;
+    --chart-4: 0.65 0.22 25;
+    --chart-5: 0.75 0.15 140;
+    --sidebar: 0.12 0.03 280;
+    --sidebar-foreground: 0.95 0.02 280;
+    --sidebar-primary: 0.8 0.15 200;
+    --sidebar-primary-foreground: 0.09 0.02 280;
+    --sidebar-accent: 0.75 0.18 310;
+    --sidebar-accent-foreground: 0.09 0.02 280;
+    --sidebar-border: 0.3 0.05 280;
+    --sidebar-ring: 0.8 0.15 200;
+  }
+
+  .theme-dark-minimal {
+    --background: 0.07 0 0;
+    --foreground: 0.97 0 0;
+    --card: 0.12 0 0;
+    --card-foreground: 0.97 0 0;
+    --popover: 0.1 0 0;
+    --popover-foreground: 0.97 0 0;
+    --primary: 0.7 0.18 310;
+    --primary-foreground: 0.07 0 0;
+    --secondary: 0.18 0 0;
+    --secondary-foreground: 0.97 0 0;
+    --muted: 0.16 0 0;
+    --muted-foreground: 0.6 0 0;
+    --accent: 0.65 0.2 260;
+    --accent-foreground: 0.07 0 0;
+    --destructive: 0.65 0.22 25;
+    --destructive-foreground: 0.98 0 0;
+    --border: 0.22 0 0;
+    --input: 0.18 0 0;
+    --ring: 0.7 0.18 310;
+  }
+
+  .theme-light-clean {
+    --background: 0.97 0.005 280;
+    --foreground: 0.15 0.02 280;
+    --card: 1 0 0;
+    --card-foreground: 0.15 0.02 280;
+    --popover: 1 0 0;
+    --popover-foreground: 0.15 0.02 280;
+    --primary: 0.5 0.2 280;
+    --primary-foreground: 0.98 0 0;
+    --secondary: 0.93 0.01 280;
+    --secondary-foreground: 0.15 0.02 280;
+    --muted: 0.93 0.01 280;
+    --muted-foreground: 0.45 0.05 280;
+    --accent: 0.55 0.22 310;
+    --accent-foreground: 0.98 0 0;
+    --destructive: 0.65 0.22 25;
+    --destructive-foreground: 0.98 0 0;
+    --border: 0.88 0.01 280;
+    --input: 0.88 0.01 280;
+    --ring: 0.5 0.2 280;
+  }
+
+  .theme-neon-pulse {
+    --background: 0.05 0 0;
+    --foreground: 0.95 0.05 140;
+    --card: 0.08 0.01 140;
+    --card-foreground: 0.95 0.05 140;
+    --popover: 0.07 0.01 140;
+    --popover-foreground: 0.95 0.05 140;
+    --primary: 0.85 0.25 140;
+    --primary-foreground: 0.05 0 0;
+    --secondary: 0.12 0.02 310;
+    --secondary-foreground: 0.95 0.05 140;
+    --muted: 0.1 0.01 140;
+    --muted-foreground: 0.55 0.1 140;
+    --accent: 0.75 0.3 330;
+    --accent-foreground: 0.05 0 0;
+    --destructive: 0.65 0.22 25;
+    --destructive-foreground: 0.98 0 0;
+    --border: 0.85 0.25 140;
+    --input: 0.12 0.02 140;
+    --ring: 0.85 0.25 140;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Figtree", sans-serif;
+  }
+}
+
+/* ===== Liquid Flux Animated Background ===== */
+@keyframes blob-shift-1 {
+  0%,
+  100% {
+    transform: translate(0%, 0%) scale(1);
+  }
+  33% {
+    transform: translate(8%, -12%) scale(1.1);
+  }
+  66% {
+    transform: translate(-5%, 8%) scale(0.92);
+  }
+}
+@keyframes blob-shift-2 {
+  0%,
+  100% {
+    transform: translate(0%, 0%) scale(1);
+  }
+  33% {
+    transform: translate(-10%, 6%) scale(1.08);
+  }
+  66% {
+    transform: translate(12%, -8%) scale(0.95);
+  }
+}
+@keyframes blob-shift-3 {
+  0%,
+  100% {
+    transform: translate(0%, 0%) scale(1);
+  }
+  50% {
+    transform: translate(6%, 10%) scale(1.15);
+  }
+}
+
+.liquid-flux-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: #0a0a1a;
+  overflow: hidden;
+}
+.liquid-flux-bg::before,
+.liquid-flux-bg::after,
+.liquid-flux-blob3 {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.45;
+}
+.liquid-flux-bg::before {
+  width: 55vw;
+  height: 55vw;
+  max-width: 400px;
+  max-height: 400px;
+  background: radial-gradient(circle, oklch(0.5 0.25 280), transparent 70%);
+  top: -10%;
+  left: -10%;
+  animation: blob-shift-1 10s ease-in-out infinite;
+}
+.liquid-flux-bg::after {
+  width: 50vw;
+  height: 50vw;
+  max-width: 360px;
+  max-height: 360px;
+  background: radial-gradient(circle, oklch(0.65 0.2 200), transparent 70%);
+  bottom: 5%;
+  right: -10%;
+  animation: blob-shift-2 12s ease-in-out infinite;
+}
+.liquid-flux-blob3 {
+  width: 40vw;
+  height: 40vw;
+  max-width: 300px;
+  max-height: 300px;
+  background: radial-gradient(circle, oklch(0.6 0.22 310), transparent 70%);
+  bottom: 30%;
+  left: 20%;
+  animation: blob-shift-3 9s ease-in-out infinite;
+}
+
+/* ===== Glassmorphism Cards ===== */
+.glass-card {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+}
+.glass-card-strong {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+}
+
+/* Light theme glass */
+.theme-light-clean .glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+}
+.theme-light-clean .glass-card-strong {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark minimal glass */
+.theme-dark-minimal .glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Neon pulse glass */
+.theme-neon-pulse .glass-card {
+  background: rgba(0, 255, 120, 0.04);
+  border: 1px solid rgba(0, 255, 120, 0.3);
+  box-shadow: 0 0 16px rgba(0, 255, 120, 0.1);
+}
+
+/* ===== Chat bubble animations ===== */
+@keyframes bubble-in-right {
+  from {
+    transform: translateY(16px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes bubble-in-left {
+  from {
+    transform: translateY(16px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+.bubble-in-right {
+  animation: bubble-in-right 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.bubble-in-left {
+  animation: bubble-in-left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ===== Typing indicator ===== */
+@keyframes typing-dot {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+.typing-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: oklch(0.8 0.15 200);
+  animation: typing-dot 1.2s infinite;
+}
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* ===== Page transitions ===== */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.page-enter {
+  animation: page-in 0.3s ease-out both;
+}
+
+/* ===== Neon pulse border ===== */
+@keyframes neon-border {
+  0%,
+  100% {
+    box-shadow: 0 0 8px oklch(0.85 0.25 140), 0 0 24px
+      oklch(0.85 0.25 140 / 0.3);
+  }
+  50% {
+    box-shadow: 0 0 16px oklch(0.75 0.3 330), 0 0 40px oklch(0.75 0.3 330 / 0.4);
+  }
+}
+.neon-pulse {
+  animation: neon-border 2s ease-in-out infinite;
+}
+
+/* ===== Send button pulse ===== */
+@keyframes send-pulse {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(0.88);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.send-pulse {
+  animation: send-pulse 0.35s ease-out;
+}
+
+/* Smooth scrolling */
+* {
+  scroll-behavior: smooth;
+}
+.momentum-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.4 0.1 280);
+  border-radius: 4px;
+}
+
+/* ===== Unread badge pulse ===== */
+@keyframes badgePulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 8px oklch(0.6 0.28 25 / 0.7);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 14px oklch(0.6 0.28 25 / 0.9);
+  }
+}
+
+/* ===== Seen circle pulse ===== */
+@keyframes seenPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 6px oklch(0.65 0.2 200 / 0.6);
+  }
+  50% {
+    transform: scale(1.2);
+    box-shadow: 0 0 12px oklch(0.65 0.2 200 / 0.9);
+  }
+}

@@ -112,6 +112,10 @@ export enum UserRole {
     user = "user",
     guest = "guest"
 }
+export interface BroadcastMessage {
+    text: string;
+    timestamp: bigint;
+}
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     broadcastMessage(text: string): Promise<void>;
@@ -125,6 +129,7 @@ export interface backendInterface {
     getCoordinates(): Promise<Coordinates | null>;
     getFollowers(username: string): Promise<Array<string>>;
     getFollowing(username: string): Promise<Array<string>>;
+    getLatestBroadcast(): Promise<BroadcastMessage | null>;
     getNewMessages(userId: string, otherUserId: string, lastTimestamp: Time): Promise<Array<Message>>;
     getPurchaseSettings(): Promise<PurchaseSettings>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;

@@ -47,7 +47,12 @@ export function SearchPage({ onNavigate }: SearchPageProps) {
 
   return (
     <div
-      style={{ position: "relative", minHeight: "100dvh", paddingBottom: 80 }}
+      style={{
+        position: "relative",
+        minHeight: "100dvh",
+        display: "flex",
+        flexDirection: "column",
+      }}
     >
       <LiquidFluxBg />
       <div
@@ -58,6 +63,9 @@ export function SearchPage({ onNavigate }: SearchPageProps) {
           maxWidth: 430,
           margin: "0 auto",
           padding: "0 16px",
+          flex: 1,
+          width: "100%",
+          paddingBottom: 16,
         }}
       >
         <div style={{ paddingTop: 56, paddingBottom: 20 }}>
@@ -254,7 +262,10 @@ export function SearchPage({ onNavigate }: SearchPageProps) {
           )}
         </div>
       </div>
-      <DevFooter />
+      {/* Footer always at bottom, above BottomNav */}
+      <div style={{ position: "relative", zIndex: 1, paddingBottom: 80 }}>
+        <DevFooter />
+      </div>
       <BottomNav active="search" onNavigate={onNavigate} />
     </div>
   );

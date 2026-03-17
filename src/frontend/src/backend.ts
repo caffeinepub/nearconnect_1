@@ -208,6 +208,7 @@ export interface backendInterface {
     getCoordinates(): Promise<Coordinates | null>;
     getFollowers(username: string): Promise<Array<string>>;
     getFollowing(username: string): Promise<Array<string>>;
+    getLatestBroadcast(): Promise<{ text: string; timestamp: bigint } | null>;
     getNewMessages(userId: string, otherUserId: string, lastTimestamp: Time): Promise<Array<Message>>;
     getPurchaseSettings(): Promise<PurchaseSettings>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
@@ -416,6 +417,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getFollowing(arg0);
             return result;
+        }
+    }
+    async getLatestBroadcast(): Promise<{ text: string; timestamp: bigint } | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getLatestBroadcast();
+                return result.length === 0 ? null : result[0];
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getLatestBroadcast();
+            return result.length === 0 ? null : result[0];
         }
     }
     async getNewMessages(arg0: string, arg1: string, arg2: Time): Promise<Array<Message>> {

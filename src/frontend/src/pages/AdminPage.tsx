@@ -187,7 +187,12 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
   return (
     <div
       data-ocid="admin.page"
-      style={{ position: "relative", minHeight: "100dvh" }}
+      style={{
+        position: "relative",
+        minHeight: "100dvh",
+        display: "flex",
+        flexDirection: "column",
+      }}
     >
       <LiquidFluxBg />
       <div
@@ -198,6 +203,8 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
           maxWidth: 430,
           margin: "0 auto",
           padding: "0 16px",
+          flex: 1,
+          width: "100%",
         }}
       >
         {/* Header */}
@@ -880,7 +887,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                   color: isLight ? "#888" : "rgba(255,255,255,0.4)",
                 }}
               >
-                Send a message to all users
+                Send a popup announcement to all users
               </p>
             </div>
           </div>
@@ -950,8 +957,11 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
           </Button>
         </div>
 
-        <DevFooter />
         <div style={{ height: 24 }} />
+      </div>
+      {/* Footer always at bottom */}
+      <div style={{ position: "relative", zIndex: 1, paddingBottom: 24 }}>
+        <DevFooter />
       </div>
     </div>
   );

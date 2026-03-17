@@ -109,6 +109,7 @@ export interface _SERVICE {
   'getCoordinates' : ActorMethod<[], [] | [Coordinates]>,
   'getFollowers' : ActorMethod<[string], Array<string>>,
   'getFollowing' : ActorMethod<[string], Array<string>>,
+  'getLatestBroadcast' : ActorMethod<[], [] | [{ 'text' : string, 'timestamp' : Time }]>,
   'getNewMessages' : ActorMethod<[string, string, Time], Array<Message>>,
   'getPurchaseSettings' : ActorMethod<[], PurchaseSettings>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,

@@ -131,6 +131,7 @@ export const idlService = IDL.Service({
   'getCoordinates' : IDL.Func([], [IDL.Opt(Coordinates)], ['query']),
   'getFollowers' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
   'getFollowing' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
+  'getLatestBroadcast' : IDL.Func([], [IDL.Opt(IDL.Record({ 'text' : IDL.Text, 'timestamp' : Time }))], ['query']),
   'getNewMessages' : IDL.Func(
       [IDL.Text, IDL.Text, Time],
       [IDL.Vec(Message)],
@@ -296,6 +297,7 @@ export const idlFactory = ({ IDL }) => {
     'getCoordinates' : IDL.Func([], [IDL.Opt(Coordinates)], ['query']),
     'getFollowers' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
     'getFollowing' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
+    'getLatestBroadcast' : IDL.Func([], [IDL.Opt(IDL.Record({ 'text' : IDL.Text, 'timestamp' : Time }))], ['query']),
     'getNewMessages' : IDL.Func(
         [IDL.Text, IDL.Text, Time],
         [IDL.Vec(Message)],

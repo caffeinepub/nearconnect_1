@@ -31,6 +31,13 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
 
   if (!currentUser) return null;
 
+  const tierOrder: Record<RadiusTier, number> = {
+    free: 0,
+    basic: 1,
+    standard: 2,
+    premium: 3,
+  };
+  const userTierLevel = tierOrder[currentUser.radiusTier] ?? 0;
   const tiers: {
     tier: RadiusTier;
     label: string;
@@ -38,9 +45,24 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
     locked: boolean;
   }[] = [
     { tier: "free", label: "500m", price: "Free", locked: false },
-    { tier: "basic", label: "1km", price: "$0.99", locked: true },
-    { tier: "standard", label: "5km", price: "$2.99", locked: true },
-    { tier: "premium", label: "10km", price: "$4.99", locked: true },
+    {
+      tier: "basic",
+      label: "1km",
+      price: "$0.99",
+      locked: tierOrder.basic > userTierLevel,
+    },
+    {
+      tier: "standard",
+      label: "5km",
+      price: "$2.99",
+      locked: tierOrder.standard > userTierLevel,
+    },
+    {
+      tier: "premium",
+      label: "10km",
+      price: "$4.99",
+      locked: tierOrder.premium > userTierLevel,
+    },
   ];
 
   const themes = [
@@ -65,7 +87,12 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
 
   return (
     <div
-      style={{ position: "relative", minHeight: "100dvh", paddingBottom: 80 }}
+      style={{
+        position: "relative",
+        minHeight: "100dvh",
+        display: "flex",
+        flexDirection: "column",
+      }}
     >
       <LiquidFluxBg />
       <div
@@ -76,6 +103,9 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
           maxWidth: 430,
           margin: "0 auto",
           padding: "0 16px",
+          flex: 1,
+          width: "100%",
+          paddingBottom: 16,
         }}
       >
         <div style={{ paddingTop: 56, paddingBottom: 20 }}>
@@ -420,7 +450,10 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
           Sign Out
         </Button>
       </div>
-      <DevFooter />
+      {/* Footer always at bottom, above BottomNav */}
+      <div style={{ position: "relative", zIndex: 1, paddingBottom: 80 }}>
+        <DevFooter />
+      </div>
       <BottomNav active="settings" onNavigate={onNavigate} />
     </div>
   );

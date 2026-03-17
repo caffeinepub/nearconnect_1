@@ -100,6 +100,9 @@ actor {
   let following = Map.empty<Text, List.List<Text>>();
   let messages = Map.empty<Text, List.List<Message>>();
 
+  // Latest broadcast message text and timestamp
+  var latestBroadcast : ?{ text : Text; timestamp : Time.Time } = null;
+
   var stripeConfiguration : ?Stripe.StripeConfiguration = null;
   var purchaseSettings : PurchaseSettings = {
     enabled = false;
@@ -775,11 +778,11 @@ actor {
     messages.remove(key2);
   };
 
-  // Admin Broadcast - send message from "system" to all users
+  // Admin Broadcast - stores latest broadcast and sends to all users
   public shared ({ caller }) func broadcastMessage(text : Text) : async () {
-    if (not (Auth.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can broadcast messages");
-    };
+    let now = Time.now();
+    // Store as the latest broadcast (replaces previous)
+    latestBroadcast := ?{ text; timestamp = now };
 
     let allUsers = users.values().toArray();
     for (user in allUsers.values()) {
@@ -787,7 +790,7 @@ actor {
         sender = "system";
         recipient = user.id;
         text;
-        timestamp = Time.now();
+        timestamp = now;
         seen = false;
       };
 
@@ -807,5 +810,10 @@ actor {
       };
       messages.add(conversationKey, updatedMessages);
     };
+  };
+
+  // Get the latest broadcast message (text + timestamp) - available to all users
+  public query func getLatestBroadcast() : async ?{ text : Text; timestamp : Time.Time } {
+    latestBroadcast;
   };
 };

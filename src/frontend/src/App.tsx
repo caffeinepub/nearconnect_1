@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/sonner";
 import { useEffect, useState } from "react";
+import { BroadcastPopup } from "./components/BroadcastPopup";
 import { AppProvider } from "./context/AppContext";
 import { useApp } from "./context/AppContext";
 import { AdminPage } from "./pages/AdminPage";
@@ -211,6 +212,7 @@ function AppInner() {
         boxShadow: "0 0 80px rgba(80,100,255,0.15)",
       }}
     >
+      <BroadcastPopup />
       {page === "friends" && (
         <FriendsPage onNavigate={handleNav} onOpenChat={handleOpenChat} />
       )}
@@ -232,12 +234,11 @@ export default function App() {
   const [adminPath] = useState(() => isAdminPath());
   const [adminSession] = useState(() => hasAdminSession());
 
-  // Back button: push state so back won't leave the app; attempt window.close() as fallback
+  // Standard back navigation
   useEffect(() => {
     window.history.pushState(null, "", window.location.href);
     const handlePopState = () => {
       window.history.pushState(null, "", window.location.href);
-      window.close();
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);

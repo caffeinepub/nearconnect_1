@@ -95,7 +95,12 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
 
   return (
     <div
-      style={{ position: "relative", minHeight: "100dvh", paddingBottom: 80 }}
+      style={{
+        position: "relative",
+        minHeight: "100dvh",
+        display: "flex",
+        flexDirection: "column",
+      }}
     >
       <LiquidFluxBg />
       <div
@@ -106,6 +111,9 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
           maxWidth: 430,
           margin: "0 auto",
           padding: "0 16px",
+          flex: 1,
+          width: "100%",
+          paddingBottom: 16,
         }}
       >
         {/* Header */}
@@ -454,7 +462,10 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
           </div>
         )}
       </div>
-      <DevFooter />
+      {/* Footer always at bottom, above BottomNav */}
+      <div style={{ position: "relative", zIndex: 1, paddingBottom: 80 }}>
+        <DevFooter />
+      </div>
       <BottomNav active="friends" onNavigate={onNavigate} />
     </div>
   );

@@ -312,6 +312,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }));
       setUsers(localUsers);
       setBackendUsers(mapped);
+      // Refresh currentUser tier from backend in case it was granted by admin
+      setCurrentUser((prev) => {
+        if (!prev) return prev;
+        const fresh = localUsers.find((u) => u.id === prev.id);
+        if (!fresh) return prev;
+        if (fresh.radiusTier !== prev.radiusTier) {
+          const updated = { ...prev, radiusTier: fresh.radiusTier };
+          localStorage.setItem("nc_current_user", JSON.stringify(updated));
+          return updated;
+        }
+        return prev;
+      });
     } catch {
       // Silent fail
     }
@@ -693,6 +705,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUsers((prev) =>
       prev.map((u) => (u.id === userId ? { ...u, radiusTier: tier } : u)),
     );
+    // If the granted user is the currently logged-in user, update currentUser too
+    if (currentUser && currentUser.id === userId) {
+      const updated = { ...currentUser, radiusTier: tier };
+      setCurrentUser(updated);
+      localStorage.setItem("nc_current_user", JSON.stringify(updated));
+    }
     // Refresh from backend to sync latest state
     if (currentUser) await fetchBackendUsers(currentUser.id);
   };
@@ -705,10 +723,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const radiusLabel = RADIUS_LABELS[currentUser?.radiusTier || "free"];
 
-  // Backend users filtered: exclude current user and admin users
-  const filteredBackendUsers = backendUsers.filter(
-    (u) => !u.isAdmin && u.id !== currentUser?.id,
-  );
+  const RADIUS_METERS: Record<RadiusTier, number> = {
+    free: 500,
+    basic: 1000,
+    standard: 5000,
+    premium: 10000,
+  };
+
+  // Backend users filtered: exclude current user and admin users, then filter by radius distance
+  const filteredBackendUsers = backendUsers.filter((u) => {
+    if (u.isAdmin || u.id === currentUser?.id) return false;
+    // If we have location data for both users, filter by radius tier
+    if (
+      userLocation &&
+      u.lat !== undefined &&
+      u.lng !== undefined &&
+      currentUser
+    ) {
+      const dist = getDistanceMeters(
+        userLocation.lat,
+        userLocation.lng,
+        u.lat,
+        u.lng,
+      );
+      const maxRadius = RADIUS_METERS[currentUser.radiusTier || "free"];
+      return dist <= maxRadius;
+    }
+    // If no location data available, show the user (fallback)
+    return true;
+  });
 
   const friends: FriendUser[] = [...filteredBackendUsers, BOT_USER];
 
