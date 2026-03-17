@@ -142,6 +142,7 @@ export interface backendInterface {
     isStripeConfigured(): Promise<boolean>;
     markConversationSeen(userId: string, otherUserId: string): Promise<void>;
     register(input: UserInput): Promise<User>;
+    removeFollower(followerUsername: string): Promise<string>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     saveCoordinates(coordinates: Coordinates): Promise<void>;
     sendMessage(sender: string, recipient: string, text: string): Promise<void>;

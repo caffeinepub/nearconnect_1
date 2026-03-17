@@ -37,6 +37,7 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
     refreshFriends,
     incomingFriendRequests,
     acceptFriendRequest,
+    rejectFriendRequest,
     allRealUsers,
     mutualFriendIds,
     followingUsernames,
@@ -56,6 +57,7 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
   const [locationRequested, setLocationRequested] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
+  const [rejectingIds, setRejectingIds] = useState<Set<string>>(new Set());
 
   // Find full user objects for incoming requests
   const incomingUsers = incomingFriendRequests
@@ -103,6 +105,19 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
       await acceptFriendRequest(userId);
     } finally {
       setAcceptingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    }
+  };
+
+  const handleReject = async (userId: string) => {
+    setRejectingIds((prev) => new Set(prev).add(userId));
+    try {
+      await rejectFriendRequest(userId);
+    } finally {
+      setRejectingIds((prev) => {
         const next = new Set(prev);
         next.delete(userId);
         return next;
@@ -886,6 +901,31 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                         }}
                       >
                         {acceptingIds.has(user.id) ? "Accepting..." : "Accept"}
+                      </button>
+                      <button
+                        type="button"
+                        data-ocid={`requests.item.${i + 1}.reject`}
+                        onClick={() => handleReject(user.id)}
+                        disabled={
+                          rejectingIds.has(user.id) || acceptingIds.has(user.id)
+                        }
+                        style={{
+                          background: "rgba(255,80,80,0.15)",
+                          border: "1px solid rgba(255,80,80,0.3)",
+                          borderRadius: 10,
+                          padding: "8px 18px",
+                          color: "oklch(0.75 0.2 25)",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: rejectingIds.has(user.id)
+                            ? "not-allowed"
+                            : "pointer",
+                          whiteSpace: "nowrap",
+                          transition: "all 0.2s",
+                          opacity: rejectingIds.has(user.id) ? 0.6 : 1,
+                        }}
+                      >
+                        {rejectingIds.has(user.id) ? "Rejecting..." : "Reject"}
                       </button>
                     </div>
                   </div>

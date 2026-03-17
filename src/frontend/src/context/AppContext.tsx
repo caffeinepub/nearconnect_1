@@ -196,6 +196,7 @@ interface AppContextValue {
   friendRequests: FriendRequest[];
   sendFriendRequest: (toId: string) => void;
   acceptFriendRequest: (fromId: string) => Promise<void>;
+  rejectFriendRequest: (fromId: string) => Promise<void>;
   radiusLabel: string;
   purchaseRadius: (tier: RadiusTier) => void;
   updateSettings: (settings: Partial<User>) => void;
@@ -753,6 +754,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await refreshFriends();
   };
 
+  const rejectFriendRequest = async (fromId: string): Promise<void> => {
+    if (!currentUser) return;
+    const fromUser =
+      backendUsersRef.current.find((u) => u.id === fromId) ||
+      usersRef.current.find((u) => u.id === fromId);
+    if (fromUser) {
+      try {
+        const actor = await getActor();
+        await actor.removeFollower(fromUser.username);
+      } catch {
+        // silent
+      }
+    }
+    setIncomingFriendRequests((prev) => prev.filter((id) => id !== fromId));
+    await fetchFriendRequests(currentUser);
+  };
+
   const deleteUser = (userId: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== userId));
     getActor()
@@ -827,30 +845,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const radiusLabel = RADIUS_LABELS[currentUser?.radiusTier || "free"];
 
-  const RADIUS_METERS: Record<RadiusTier, number> = {
-    free: 500,
-    basic: 1000,
-    standard: 5000,
-    premium: 10000,
-  };
-
   const filteredBackendUsers = backendUsers.filter((u) => {
-    if (u.isAdmin || u.id === currentUser?.id) return false;
-    if (
-      userLocation &&
-      u.lat !== undefined &&
-      u.lng !== undefined &&
-      currentUser
-    ) {
-      const dist = getDistanceMeters(
-        userLocation.lat,
-        userLocation.lng,
-        u.lat,
-        u.lng,
-      );
-      const maxRadius = RADIUS_METERS[currentUser.radiusTier || "free"];
-      return dist <= maxRadius;
-    }
+    // Exclude self and admin accounts only
+    if (u.id === currentUser?.id) return false;
+    if (u.username === "admin") return false;
     return true;
   });
 
@@ -905,6 +903,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         friendRequests,
         sendFriendRequest,
         acceptFriendRequest,
+        rejectFriendRequest,
         radiusLabel,
         purchaseRadius,
         updateSettings,

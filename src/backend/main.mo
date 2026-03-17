@@ -518,6 +518,49 @@ actor {
     "Successfully unfollowed " # username;
   };
 
+  // Remove a follower - called by the person being followed to reject a follow/friend request
+  public shared ({ caller }) func removeFollower(followerUsername : Text) : async Text {
+    let ownUsername : Text = switch (principalToUserId.get(caller)) {
+      case (?userId) {
+        switch (users.get(userId)) {
+          case (?user) { user.username };
+          case (null) { Runtime.trap("User not found") };
+        };
+      };
+      case (null) { Runtime.trap("User not registered") };
+    };
+
+    // Remove followerUsername from own followers list
+    switch (followers.get(ownUsername)) {
+      case (?followersList) {
+        let newFollowersList = List.empty<Text>();
+        for (person in followersList.values()) {
+          if (person != followerUsername) {
+            newFollowersList.add(person);
+          };
+        };
+        followers.add(ownUsername, newFollowersList);
+      };
+      case (null) {};
+    };
+
+    // Remove ownUsername from followerUsername's following list
+    switch (following.get(followerUsername)) {
+      case (?followingList) {
+        let newFollowingList = List.empty<Text>();
+        for (person in followingList.values()) {
+          if (person != ownUsername) {
+            newFollowingList.add(person);
+          };
+        };
+        following.add(followerUsername, newFollowingList);
+      };
+      case (null) {};
+    };
+
+    "Removed follower " # followerUsername;
+  };
+
   public query ({ caller }) func getFollowing(username : Text) : async [Text] {
     switch (following.get(username)) {
       case (?followingList) { followingList.toArray() };

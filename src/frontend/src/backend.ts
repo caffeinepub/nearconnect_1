@@ -229,6 +229,7 @@ export interface backendInterface {
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
     unfollow(username: string): Promise<string>;
+    removeFollower(followerUsername: string): Promise<string>;
     updateLocation(userId: string, location: LocationInput): Promise<User>;
     updateSettings(userId: string, settings: UserSettings): Promise<User>;
     updateUserRadiusTier(userId: string, tier: bigint): Promise<User>;
@@ -710,6 +711,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.unfollow(arg0);
+            return result;
+        }
+    }
+    async removeFollower(arg0: string): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await (this.actor as any).removeFollower(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await (this.actor as any).removeFollower(arg0);
             return result;
         }
     }

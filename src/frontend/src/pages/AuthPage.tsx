@@ -118,6 +118,37 @@ const AUTH_STYLES = `
   }
   .auth-shake { animation: auth-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
   .auth-success-icon { animation: auth-success 0.4s cubic-bezier(0.22, 1, 0.36, 1) both, auth-success-ring 0.6s ease-out 0.2s both; }
+
+  @keyframes welcome-pop {
+    0%   { transform: scale(0.5); opacity: 0; }
+    60%  { transform: scale(1.12); opacity: 1; }
+    80%  { transform: scale(0.95); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes welcome-text-in {
+    0%   { opacity: 0; transform: translateY(18px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes confetti-float {
+    0%   { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(-120px) scale(0.4) rotate(360deg); opacity: 0; }
+  }
+  @keyframes welcome-overlay-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes welcome-back-wave {
+    0%   { transform: rotate(0deg); }
+    20%  { transform: rotate(-20deg); }
+    40%  { transform: rotate(20deg); }
+    60%  { transform: rotate(-15deg); }
+    80%  { transform: rotate(10deg); }
+    100% { transform: rotate(0deg); }
+  }
+  .welcome-pop  { animation: welcome-pop  0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .welcome-text { animation: welcome-text-in 0.4s ease 0.25s both; }
+  .welcome-back-wave { animation: welcome-back-wave 0.8s ease 0.3s both; display: inline-block; }
+  .welcome-overlay-in { animation: welcome-overlay-in 0.25s ease both; }
 `;
 
 // Floating particles background
@@ -132,6 +163,14 @@ const PARTICLES = [
   { id: "p8", size: 2, top: "55%", left: "18%", delay: "1.5s", dur: "8.5s" },
 ];
 
+const CONFETTI_DOTS = [
+  { color: "oklch(0.8 0.25 285)", left: "38%", delay: "0s", size: 10 },
+  { color: "oklch(0.85 0.2 60)", left: "50%", delay: "0.1s", size: 8 },
+  { color: "oklch(0.75 0.28 340)", left: "44%", delay: "0.05s", size: 12 },
+  { color: "oklch(0.8 0.22 160)", left: "56%", delay: "0.15s", size: 9 },
+  { color: "oklch(0.85 0.2 200)", left: "62%", delay: "0.08s", size: 7 },
+];
+
 const FIELD_LABEL_STYLE: React.CSSProperties = {
   color: "rgba(255,255,255,0.6)",
   fontSize: 12,
@@ -142,14 +181,16 @@ const FIELD_LABEL_STYLE: React.CSSProperties = {
 
 export function AuthPage({ onAuth }: AuthPageProps) {
   const { login, signup, savedAccounts, switchAccount } = useApp();
-  const [view, setView] = useState<AuthView>("login");
+  const [view, setView] = useState<AuthView>("signup");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [successType, setSuccessType] = useState<"login" | "signup" | null>(
+    null,
+  );
   const stylesInjected = useRef(false);
 
   const [selectedAccount, setSelectedAccount] = useState<SavedAccount | null>(
@@ -181,7 +222,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
     if (view === "login") {
       const ok = await login(username.trim(), password);
       if (ok) {
-        setShowSuccess(true);
+        setSuccessType("login");
         await new Promise((r) => setTimeout(r, 700));
         onAuth();
       } else {
@@ -200,7 +241,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
         password,
       );
       if (result.success) {
-        setShowSuccess(true);
+        setSuccessType("signup");
         await new Promise((r) => setTimeout(r, 700));
         onAuth();
       } else {
@@ -219,7 +260,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
     await new Promise((r) => setTimeout(r, 400));
     const ok = await switchAccount(selectedAccount.username, switcherPassword);
     if (ok) {
-      setShowSuccess(true);
+      setSuccessType("login");
       await new Promise((r) => setTimeout(r, 700));
       onAuth();
     } else {
@@ -248,6 +289,155 @@ export function AuthPage({ onAuth }: AuthPageProps) {
         }}
       />
     ));
+
+  // Success overlay
+  const renderSuccessOverlay = () => {
+    if (!successType) return null;
+    const isSignup = successType === "signup";
+    return (
+      <div
+        className="welcome-overlay-in"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 100,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: isSignup
+            ? "rgba(4, 8, 22, 0.82)"
+            : "rgba(4, 14, 20, 0.82)",
+          backdropFilter: "blur(12px)",
+        }}
+      >
+        {/* Confetti dots for signup */}
+        {isSignup &&
+          CONFETTI_DOTS.map((dot) => (
+            <div
+              key={dot.color}
+              style={{
+                position: "absolute",
+                bottom: "50%",
+                left: dot.left,
+                width: dot.size,
+                height: dot.size,
+                borderRadius: "50%",
+                background: dot.color,
+                animation: `confetti-float 1.2s ease-out ${dot.delay} both`,
+                pointerEvents: "none",
+              }}
+            />
+          ))}
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 16,
+            textAlign: "center",
+            padding: "0 24px",
+          }}
+        >
+          {/* Icon circle */}
+          <div
+            className="welcome-pop"
+            style={{
+              width: 96,
+              height: 96,
+              borderRadius: "50%",
+              background: isSignup
+                ? "linear-gradient(135deg, oklch(0.5 0.28 285), oklch(0.65 0.22 200))"
+                : "linear-gradient(135deg, oklch(0.48 0.22 145), oklch(0.65 0.18 160))",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 44,
+              boxShadow: isSignup
+                ? "0 0 48px oklch(0.6 0.25 220 / 0.6)"
+                : "0 0 48px oklch(0.6 0.22 160 / 0.6)",
+            }}
+          >
+            {isSignup ? "🎉" : "👋"}
+          </div>
+
+          {/* Main heading */}
+          <div className="welcome-text" style={{ lineHeight: 1.1 }}>
+            <h2
+              style={{
+                fontFamily: "'Bricolage Grotesque', sans-serif",
+                fontSize: 36,
+                fontWeight: 800,
+                margin: 0,
+                letterSpacing: -1,
+                background: isSignup
+                  ? "linear-gradient(90deg, oklch(0.75 0.22 285), oklch(0.85 0.18 200), oklch(0.9 0.15 60))"
+                  : "linear-gradient(90deg, oklch(0.8 0.18 160), oklch(0.85 0.18 200))",
+                backgroundClip: "text",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              {isSignup ? (
+                "Welcome to VibeZone!"
+              ) : (
+                <>
+                  Welcome back <span className="welcome-back-wave">👋</span>
+                </>
+              )}
+            </h2>
+            <p
+              style={{
+                marginTop: 10,
+                color: "rgba(255,255,255,0.55)",
+                fontSize: 16,
+                fontWeight: 400,
+              }}
+            >
+              {isSignup
+                ? "Your account is ready. Let's find your vibe!"
+                : "Good to see you again."}
+            </p>
+          </div>
+
+          {/* Checkmark badge */}
+          <div
+            className="welcome-text"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: isSignup
+                ? "oklch(0.55 0.22 285 / 0.2)"
+                : "oklch(0.5 0.2 160 / 0.2)",
+              border: isSignup
+                ? "1px solid oklch(0.65 0.22 285 / 0.35)"
+                : "1px solid oklch(0.65 0.2 160 / 0.35)",
+              borderRadius: 100,
+              padding: "8px 20px",
+              fontSize: 14,
+              color: "rgba(255,255,255,0.8)",
+              fontWeight: 500,
+              animationDelay: "0.4s",
+            }}
+          >
+            <span
+              style={{
+                color: isSignup
+                  ? "oklch(0.8 0.22 285)"
+                  : "oklch(0.75 0.22 160)",
+                fontWeight: 700,
+                fontSize: 16,
+              }}
+            >
+              ✓
+            </span>
+            {isSignup ? "Account created" : "Authentication successful"}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Shared hero section
   const hero = (
@@ -315,39 +505,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
       >
         <LiquidFluxBg />
         {renderParticles()}
-
-        {/* Success overlay */}
-        {showSuccess && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 100,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "rgba(5, 18, 8, 0.75)",
-              backdropFilter: "blur(8px)",
-            }}
-          >
-            <div
-              className="auth-success-icon"
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: "50%",
-                background:
-                  "linear-gradient(135deg, oklch(0.48 0.22 145), oklch(0.65 0.18 160))",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 36,
-              }}
-            >
-              ✓
-            </div>
-          </div>
-        )}
+        {renderSuccessOverlay()}
 
         <div
           key={shakeKey > 0 ? `card-${shakeKey}` : "card"}
@@ -627,6 +785,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
     >
       <LiquidFluxBg />
       {renderParticles()}
+      {renderSuccessOverlay()}
 
       <div
         className="auth-card-enter"
@@ -710,8 +869,14 @@ export function AuthPage({ onAuth }: AuthPageProps) {
           }}
         >
           <form
+            key={view}
             onSubmit={handleSubmit}
-            style={{ display: "flex", flexDirection: "column", gap: 14 }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+              animation: "tab-slide 0.22s ease both",
+            }}
           >
             {view === "signup" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
