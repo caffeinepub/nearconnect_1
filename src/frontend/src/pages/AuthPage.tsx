@@ -98,6 +98,26 @@ const AUTH_STYLES = `
     background: linear-gradient(135deg, oklch(0.5 0.28 285 / 0.2), oklch(0.65 0.22 200 / 0.2)) !important;
     border-color: oklch(0.7 0.22 285 / 0.45) !important;
   }
+  @keyframes auth-shake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-8px); }
+    30% { transform: translateX(8px); }
+    45% { transform: translateX(-6px); }
+    60% { transform: translateX(6px); }
+    75% { transform: translateX(-3px); }
+    90% { transform: translateX(3px); }
+  }
+  @keyframes auth-success {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes auth-success-ring {
+    0% { box-shadow: 0 0 0 0 oklch(0.72 0.25 145 / 0.8); }
+    100% { box-shadow: 0 0 0 20px oklch(0.72 0.25 145 / 0); }
+  }
+  .auth-shake { animation: auth-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+  .auth-success-icon { animation: auth-success 0.4s cubic-bezier(0.22, 1, 0.36, 1) both, auth-success-ring 0.6s ease-out 0.2s both; }
 `;
 
 // Floating particles background
@@ -128,6 +148,8 @@ export function AuthPage({ onAuth }: AuthPageProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [shakeKey, setShakeKey] = useState(0);
+  const [showSuccess, setShowSuccess] = useState(false);
   const stylesInjected = useRef(false);
 
   const [selectedAccount, setSelectedAccount] = useState<SavedAccount | null>(
@@ -159,9 +181,12 @@ export function AuthPage({ onAuth }: AuthPageProps) {
     if (view === "login") {
       const ok = await login(username.trim(), password);
       if (ok) {
+        setShowSuccess(true);
+        await new Promise((r) => setTimeout(r, 700));
         onAuth();
       } else {
         setError("Invalid username or password.");
+        setShakeKey((k) => k + 1);
       }
     } else {
       if (!username.trim() || !displayName.trim() || !password) {
@@ -175,9 +200,12 @@ export function AuthPage({ onAuth }: AuthPageProps) {
         password,
       );
       if (result.success) {
+        setShowSuccess(true);
+        await new Promise((r) => setTimeout(r, 700));
         onAuth();
       } else {
         setError(result.error);
+        setShakeKey((k) => k + 1);
       }
     }
     setLoading(false);
@@ -191,9 +219,12 @@ export function AuthPage({ onAuth }: AuthPageProps) {
     await new Promise((r) => setTimeout(r, 400));
     const ok = await switchAccount(selectedAccount.username, switcherPassword);
     if (ok) {
+      setShowSuccess(true);
+      await new Promise((r) => setTimeout(r, 700));
       onAuth();
     } else {
       setSwitcherError("Wrong password. Please try again.");
+      setShakeKey((k) => k + 1);
     }
     setLoading(false);
   };
@@ -285,8 +316,42 @@ export function AuthPage({ onAuth }: AuthPageProps) {
         <LiquidFluxBg />
         {renderParticles()}
 
+        {/* Success overlay */}
+        {showSuccess && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 100,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(5, 18, 8, 0.75)",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <div
+              className="auth-success-icon"
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: "50%",
+                background:
+                  "linear-gradient(135deg, oklch(0.48 0.22 145), oklch(0.65 0.18 160))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 36,
+              }}
+            >
+              ✓
+            </div>
+          </div>
+        )}
+
         <div
-          className="auth-card-enter"
+          key={shakeKey > 0 ? `card-${shakeKey}` : "card"}
+          className={`auth-card-enter${shakeKey > 0 ? " auth-shake" : ""}`}
           style={{
             position: "relative",
             zIndex: 1,

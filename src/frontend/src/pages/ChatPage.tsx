@@ -243,7 +243,6 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
     getConversation,
     sendMessage,
     receiveMessage,
-    fetchConversation,
     deleteMessage,
     deleteConversation,
     theme,
@@ -277,27 +276,55 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messagesLen, isTyping]);
 
-  // Poll backend for new messages every 3 seconds (non-bot chats only)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: stable function refs
+  // Poll backend directly for new messages every 3 seconds (non-bot chats only)
   useEffect(() => {
-    if (isBot) return;
+    if (isBot || !currentUser?.id) return;
+    const currentUserId = currentUser.id;
 
-    const poll = async () => {
-      const merged = await fetchConversation(friendId);
-      setMessages(merged);
+    const fetchMessages = async () => {
+      try {
+        const actor = await createActorWithConfig();
+        const backendMsgs = await actor.getConversation(
+          currentUserId,
+          friendId,
+        );
+        const mapped: Message[] = backendMsgs.map((m) => ({
+          id: `${m.sender}_${m.timestamp}`,
+          senderId: m.sender === currentUserId ? "me" : m.sender,
+          text: m.text,
+          timestamp: Number(m.timestamp) / 1_000_000,
+          seen: m.seen,
+          backendTimestamp: Number(m.timestamp),
+        }));
+        // Merge: keep optimistic local messages not yet confirmed in backend
+        setMessages((prev) => {
+          const localOnly = prev.filter(
+            (m) =>
+              m.senderId === "me" &&
+              !mapped.some(
+                (bm) =>
+                  bm.text === m.text &&
+                  Math.abs(bm.timestamp - m.timestamp) < 3000,
+              ),
+          );
+          return [...mapped, ...localOnly].sort(
+            (a, b) => a.timestamp - b.timestamp,
+          );
+        });
+      } catch {
+        // silent
+      }
     };
 
-    // Initial fetch
-    poll();
-
-    pollRef.current = setInterval(poll, 3000);
+    fetchMessages();
+    pollRef.current = setInterval(fetchMessages, 3000);
     return () => {
       if (pollRef.current !== null) {
         clearInterval(pollRef.current);
         pollRef.current = null;
       }
     };
-  }, [friendId, isBot]);
+  }, [friendId, isBot, currentUser?.id]);
 
   // Mark messages as seen when chat is opened
   useEffect(() => {
@@ -359,7 +386,6 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
 
   const handleTouchStart = (e: React.TouchEvent, msg: Message) => {
     swipeStartX.current = e.touches[0].clientX;
-    // Long press for delete menu
     longPressTimer.current = setTimeout(() => {
       if (msg.senderId === "me") {
         const touch = e.touches[0];
@@ -579,7 +605,6 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
           const replyMsg = msg.replyTo
             ? messages.find((m) => m.id === msg.replyTo)
             : null;
-          // Find the last sent (mine) message index for seen indicator
           const lastMineIdx = messages.reduce(
             (acc, m, idx) => (m.senderId === "me" ? idx : acc),
             -1,

@@ -25,8 +25,14 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
-  const { currentUser, theme, setTheme, updateSettings, purchaseRadius } =
-    useApp();
+  const {
+    currentUser,
+    theme,
+    setTheme,
+    updateSettings,
+    purchaseRadius,
+    purchaseSettings,
+  } = useApp();
   const isLight = theme === "light-clean";
 
   if (!currentUser) return null;
@@ -37,7 +43,17 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
     standard: 2,
     premium: 3,
   };
-  const userTierLevel = tierOrder[currentUser.radiusTier] ?? 0;
+  const maxGrantedTier = currentUser.maxGrantedTier || currentUser.radiusTier;
+  const maxGrantedLevel = tierOrder[maxGrantedTier] ?? 0;
+  const basicPriceDisplay = purchaseSettings
+    ? `₹${(Number(purchaseSettings.basicPrice) / 100).toFixed(2)}`
+    : "₹99.00";
+  const standardPriceDisplay = purchaseSettings
+    ? `₹${(Number(purchaseSettings.standardPrice) / 100).toFixed(2)}`
+    : "₹299.00";
+  const premiumPriceDisplay = purchaseSettings
+    ? `₹${(Number(purchaseSettings.premiumPrice) / 100).toFixed(2)}`
+    : "₹499.00";
   const tiers: {
     tier: RadiusTier;
     label: string;
@@ -48,20 +64,20 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
     {
       tier: "basic",
       label: "1km",
-      price: "$0.99",
-      locked: tierOrder.basic > userTierLevel,
+      price: basicPriceDisplay,
+      locked: tierOrder.basic > maxGrantedLevel,
     },
     {
       tier: "standard",
       label: "5km",
-      price: "$2.99",
-      locked: tierOrder.standard > userTierLevel,
+      price: standardPriceDisplay,
+      locked: tierOrder.standard > maxGrantedLevel,
     },
     {
       tier: "premium",
       label: "10km",
-      price: "$4.99",
-      locked: tierOrder.premium > userTierLevel,
+      price: premiumPriceDisplay,
+      locked: tierOrder.premium > maxGrantedLevel,
     },
   ];
 

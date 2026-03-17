@@ -1,5 +1,13 @@
 import { Badge } from "@/components/ui/badge";
-import { MapPin, MessageCircle, Navigation, RefreshCw } from "lucide-react";
+import {
+  Clock,
+  MapPin,
+  MessageCircle,
+  Navigation,
+  RefreshCw,
+  UserCheck,
+  UserPlus,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { BottomNav } from "../components/BottomNav";
 import { DevFooter } from "../components/DevFooter";
@@ -37,11 +45,41 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
     userLocation,
     refreshFriends,
     currentUser,
+    incomingFriendRequests,
+    acceptFriendRequest,
+    allRealUsers,
+    mutualFriendIds,
+    followingUsernames,
+    sendFriendRequest,
   } = useApp();
   const isLight = theme === "light-clean";
+  const followingSet = new Set(followingUsernames);
+
+  // Split: mutual friends (both follow each other) + bot vs nearby strangers
+  const mutualAndBot = friends.filter(
+    (f) => f.isBot || mutualFriendIds.has(f.id),
+  );
+  const nearbyPeople = friends.filter(
+    (f) => !f.isBot && !mutualFriendIds.has(f.id),
+  );
   const [locationRequested, setLocationRequested] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+
+  // Find full user objects for incoming requests
+  const incomingUsers = incomingFriendRequests
+    .map(
+      (id) =>
+        allRealUsers.find((u) => u.id === id) ||
+        (friends.find((f) => f.id === id) as
+          | { id: string; displayName: string; username: string }
+          | undefined),
+    )
+    .filter(Boolean) as Array<{
+    id: string;
+    displayName: string;
+    username: string;
+  }>;
 
   useEffect(() => {
     if (!currentUser?.id || !friends.length) return;
@@ -80,10 +118,13 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
     );
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    refreshFriends();
-    setTimeout(() => setIsRefreshing(false), 1200);
+    try {
+      await refreshFriends();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -145,7 +186,7 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                   marginTop: 2,
                 }}
               >
-                {friends.filter((f) => f.online).length} online now
+                {mutualAndBot.filter((f) => f.online).length} online now
               </p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -263,13 +304,129 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
           </div>
         )}
 
-        {/* Friends list */}
-        {friends.length === 0 ? (
+        {/* Incoming Friend Requests */}
+        {incomingUsers.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 10,
+              }}
+            >
+              <UserCheck size={15} style={{ color: "oklch(0.78 0.18 280)" }} />
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: isLight ? "#333" : "rgba(255,255,255,0.65)",
+                  letterSpacing: 0.3,
+                }}
+              >
+                Friend Requests
+              </span>
+              <span
+                style={{
+                  background: "oklch(0.55 0.25 280 / 0.25)",
+                  border: "1px solid oklch(0.65 0.22 280 / 0.4)",
+                  borderRadius: 20,
+                  padding: "1px 8px",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "oklch(0.78 0.2 280)",
+                }}
+              >
+                {incomingUsers.length}
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {incomingUsers.map((user, i) => (
+                <div
+                  key={user.id}
+                  data-ocid={`friends.item.${i + 1}`}
+                  className="glass-card"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 14px",
+                    border: "1px solid oklch(0.65 0.22 280 / 0.25)",
+                    background: "oklch(0.55 0.2 280 / 0.08)",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: "50%",
+                      background:
+                        "linear-gradient(135deg, oklch(0.48 0.25 280), oklch(0.62 0.2 240))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 700,
+                      fontSize: 16,
+                      color: "white",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {user.displayName[0]}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontWeight: 600,
+                        fontSize: 14,
+                        color: isLight ? "#111" : "white",
+                      }}
+                    >
+                      {user.displayName}
+                    </p>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 12,
+                        color: "rgba(255,255,255,0.4)",
+                      }}
+                    >
+                      @{user.username}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    data-ocid={`friends.item.${i + 1}.button`}
+                    onClick={() => acceptFriendRequest(user.id)}
+                    style={{
+                      background:
+                        "linear-gradient(135deg, oklch(0.5 0.25 280), oklch(0.65 0.2 240))",
+                      border: "none",
+                      borderRadius: 10,
+                      padding: "7px 14px",
+                      color: "white",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      boxShadow: "0 2px 10px oklch(0.65 0.2 280 / 0.35)",
+                    }}
+                  >
+                    Accept
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Friends list (mutual + bot) */}
+        {mutualAndBot.length === 0 ? (
           <div
             data-ocid="friends.empty_state"
             style={{
               textAlign: "center",
-              padding: "60px 20px",
+              padding: "40px 20px",
               color: "rgba(255,255,255,0.3)",
             }}
           >
@@ -278,14 +435,14 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
               style={{ marginBottom: 12, opacity: 0.3 }}
             />
             <p>
-              No friends nearby yet.
+              No friends yet.
               <br />
-              Search to find and add friends!
+              Add nearby people below!
             </p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {friends.map((friend, i) => {
+            {mutualAndBot.map((friend, i) => {
               const dist =
                 userLocation && friend.lat && friend.lng
                   ? getDistanceMeters(
@@ -462,6 +619,143 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
           </div>
         )}
       </div>
+      {/* Nearby People section */}
+      {nearbyPeople.length > 0 && (
+        <div style={{ marginTop: 24, marginBottom: 8 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 10,
+            }}
+          >
+            <UserPlus size={15} style={{ color: "oklch(0.78 0.18 200)" }} />
+            <span
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: isLight ? "#333" : "rgba(255,255,255,0.65)",
+                letterSpacing: 0.3,
+              }}
+            >
+              Nearby People
+            </span>
+            <span
+              style={{
+                background: "oklch(0.55 0.2 200 / 0.2)",
+                border: "1px solid oklch(0.65 0.18 200 / 0.35)",
+                borderRadius: 20,
+                padding: "1px 8px",
+                fontSize: 11,
+                fontWeight: 700,
+                color: "oklch(0.75 0.18 200)",
+              }}
+            >
+              {nearbyPeople.length}
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {nearbyPeople.map((person, i) => {
+              const isPending = followingSet.has(person.username);
+              return (
+                <div
+                  key={person.id}
+                  data-ocid={`friends.nearby.${i + 1}`}
+                  className="glass-card"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 14px",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: "50%",
+                      background: `linear-gradient(135deg, oklch(0.5 0.2 ${180 + i * 35}), oklch(0.65 0.15 ${220 + i * 35}))`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 700,
+                      fontSize: 16,
+                      color: "white",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {person.displayName[0]}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontWeight: 600,
+                        fontSize: 14,
+                        color: isLight ? "#111" : "white",
+                      }}
+                    >
+                      {person.displayName}
+                    </p>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 12,
+                        color: "rgba(255,255,255,0.4)",
+                      }}
+                    >
+                      @{person.username}
+                    </p>
+                  </div>
+                  {isPending ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        background: "rgba(255,255,255,0.07)",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        borderRadius: 10,
+                        padding: "7px 12px",
+                        color: "rgba(255,255,255,0.45)",
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Clock size={12} />
+                      Pending
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      data-ocid={`friends.nearby.${i + 1}.add`}
+                      onClick={() => sendFriendRequest(person.id)}
+                      style={{
+                        background:
+                          "linear-gradient(135deg, oklch(0.5 0.2 200), oklch(0.65 0.15 240))",
+                        border: "none",
+                        borderRadius: 10,
+                        padding: "7px 14px",
+                        color: "white",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        boxShadow: "0 2px 10px oklch(0.65 0.15 200 / 0.35)",
+                      }}
+                    >
+                      Add Friend
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Footer always at bottom, above BottomNav */}
       <div style={{ position: "relative", zIndex: 1, paddingBottom: 80 }}>
         <DevFooter />

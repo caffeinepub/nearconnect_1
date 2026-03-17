@@ -30,6 +30,7 @@ export interface User {
   displayName: string;
   password: string;
   radiusTier: RadiusTier;
+  maxGrantedTier?: RadiusTier;
   showOnlineStatus: boolean;
   showInRadius: boolean;
   notifications: boolean;
@@ -141,10 +142,8 @@ export function formatDistance(meters: number): string {
 function extractErrorMessage(e: unknown): string {
   if (e instanceof Error) {
     const msg = e.message;
-    // ICP canister errors are wrapped like: "Reject text: ..."
     const rejectMatch = msg.match(/Reject text:\s*(.+)/i);
     if (rejectMatch) return rejectMatch[1].trim();
-    // Also handle trap messages
     const trapMatch = msg.match(/trapped.*?:\s*(.+)/i);
     if (trapMatch) return trapMatch[1].trim();
     return msg;
@@ -203,7 +202,7 @@ interface AppContextValue {
   deleteUser: (userId: string) => void;
   userLocation: { lat: number; lng: number } | null;
   allRealUsers: User[];
-  refreshFriends: () => void;
+  refreshFriends: () => Promise<void>;
   purchaseSettings: PurchaseSettings | null;
   savePurchaseSettings: (settings: PurchaseSettings) => Promise<void>;
   grantPurchaseToUser: (userId: string, tier: RadiusTier) => Promise<void>;
@@ -211,6 +210,9 @@ interface AppContextValue {
   switchAccount: (username: string, password: string) => Promise<boolean>;
   deleteMessage: (friendId: string, msgId: string) => void;
   deleteConversation: (friendId: string) => void;
+  incomingFriendRequests: string[];
+  followingUsernames: string[];
+  mutualFriendIds: Set<string>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -223,7 +225,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   });
   const [savedAccounts, setSavedAccounts] =
     useState<SavedAccount[]>(loadSavedAccounts);
-  // Local user store is only used for offline caching; backend is source of truth
   const [users, setUsers] = useState<User[]>([]);
   const [backendUsers, setBackendUsers] = useState<FriendUser[]>([]);
   const [conversations, setConversations] = useState<Record<string, Message[]>>(
@@ -236,6 +237,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem("nc_friend_requests");
     return stored ? JSON.parse(stored) : [];
   });
+  const [incomingFriendRequests, setIncomingFriendRequests] = useState<
+    string[]
+  >([]);
+  const [followingUsernames, setFollowingUsernames] = useState<string[]>([]);
+  const [followersUsernames, setFollowersUsernames] = useState<string[]>([]);
   const [userLocation, setUserLocation] = useState<{
     lat: number;
     lng: number;
@@ -245,9 +251,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const watchIdRef = useRef<number | null>(null);
   const backendPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Keep a ref to conversations so fetchConversation can merge without stale closure
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
+
+  // Keep backendUsers in a ref for use inside fetchFriendRequests
+  const backendUsersRef = useRef(backendUsers);
+  backendUsersRef.current = backendUsers;
 
   const persistConversations = (updated: Record<string, Message[]>) => {
     localStorage.setItem("nc_conversations", JSON.stringify(updated));
@@ -271,7 +280,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("nc_theme", theme);
   }, [theme]);
 
-  // Load purchase settings from backend on mount
   useEffect(() => {
     getActor()
       .then((actor) => actor.getPurchaseSettings())
@@ -279,7 +287,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, []);
 
-  const fetchBackendUsers = async (userId: string) => {
+  const fetchBackendUsers = async (userId: string): Promise<void> => {
     try {
       const actor = await getActor();
       const allBE = await actor.getAllUsers();
@@ -296,7 +304,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           isBot: false,
           isAdmin: false,
         }));
-      // Also update local users list for admin page
       const localUsers: User[] = allBE.map((u) => ({
         id: u.id,
         username: u.username,
@@ -312,13 +319,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }));
       setUsers(localUsers);
       setBackendUsers(mapped);
-      // Refresh currentUser tier from backend in case it was granted by admin
       setCurrentUser((prev) => {
         if (!prev) return prev;
         const fresh = localUsers.find((u) => u.id === prev.id);
         if (!fresh) return prev;
-        if (fresh.radiusTier !== prev.radiusTier) {
-          const updated = { ...prev, radiusTier: fresh.radiusTier };
+        const newMaxTier = fresh.radiusTier; // backend's tier = max granted
+        const tierOrder: Record<string, number> = {
+          free: 0,
+          basic: 1,
+          standard: 2,
+          premium: 3,
+        };
+        // Cap active tier to new max if needed
+        const newActiveTier =
+          tierOrder[prev.radiusTier] <= tierOrder[newMaxTier]
+            ? prev.radiusTier
+            : newMaxTier;
+        if (
+          fresh.radiusTier !== prev.maxGrantedTier ||
+          newActiveTier !== prev.radiusTier
+        ) {
+          const updated = {
+            ...prev,
+            maxGrantedTier: newMaxTier,
+            radiusTier: newActiveTier,
+          };
           localStorage.setItem("nc_current_user", JSON.stringify(updated));
           return updated;
         }
@@ -329,10 +354,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshFriends = () => {
-    if (currentUser) {
-      fetchBackendUsers(currentUser.id);
+  const fetchFriendRequests = async (user?: User | null) => {
+    const activeUser = user !== undefined ? user : currentUser;
+    if (!activeUser) return;
+    try {
+      const actor = await getActor();
+      const [followers, following] = await Promise.all([
+        actor.getFollowers(activeUser.username),
+        actor.getFollowing(activeUser.username),
+      ]);
+      const followingSet = new Set(following);
+      setFollowingUsernames(following);
+      setFollowersUsernames(followers);
+      // incoming = people who follow me, that I haven't followed back
+      const pending = followers.filter(
+        (username) => !followingSet.has(username),
+      );
+      // Convert usernames to userIds using backendUsersRef
+      const pendingIds = pending
+        .map(
+          (uname) =>
+            backendUsersRef.current.find((u) => u.username === uname)?.id,
+        )
+        .filter(Boolean) as string[];
+      setIncomingFriendRequests(pendingIds);
+      // Also sync localStorage for backward compat
+      const incoming = pendingIds.map((fromId) => ({
+        fromId,
+        toId: activeUser.id,
+        status: "pending" as const,
+      }));
+      // Merge with existing (keep accepted/sent)
+      setFriendRequests((prev) => {
+        const existing = prev.filter(
+          (r) => r.toId !== activeUser.id || r.status !== "pending",
+        );
+        const merged = [...existing, ...incoming];
+        localStorage.setItem("nc_friend_requests", JSON.stringify(merged));
+        return merged;
+      });
+    } catch {
+      // silent
     }
+  };
+
+  const refreshFriends = (): Promise<void> => {
+    if (currentUser) {
+      return fetchBackendUsers(currentUser.id).then(() =>
+        fetchFriendRequests(currentUser),
+      );
+    }
+    return Promise.resolve();
   };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: poll by id only
@@ -345,10 +417,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       return;
     }
-    fetchBackendUsers(currentUser.id);
+    fetchBackendUsers(currentUser.id).then(() =>
+      fetchFriendRequests(currentUser),
+    );
     backendPollRef.current = setInterval(() => {
-      fetchBackendUsers(currentUser.id);
-    }, 30000);
+      fetchBackendUsers(currentUser.id).then(() =>
+        fetchFriendRequests(currentUser),
+      );
+    }, 10000);
     return () => {
       if (backendPollRef.current !== null) {
         clearInterval(backendPollRef.current);
@@ -377,7 +453,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             localStorage.setItem("nc_current_user", JSON.stringify(up));
             return up;
           });
-          // Update backend location (fire-and-forget)
           getActor()
             .then((actor) =>
               actor.updateLocation(currentUser.id, {
@@ -404,7 +479,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     username: string,
     password: string,
   ): Promise<boolean> => {
-    // Always verify against backend first
     try {
       const actor = await getActor();
       const beUser = await actor.verifyCredentials(username, password);
@@ -415,6 +489,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           displayName: beUser.displayName,
           password,
           radiusTier: bigintToRadiusTier(beUser.radiusTier),
+          maxGrantedTier: bigintToRadiusTier(beUser.radiusTier),
           showOnlineStatus: beUser.settings.showOnlineStatus,
           showInRadius: beUser.settings.showInRadius,
           notifications: beUser.settings.notifications,
@@ -424,7 +499,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCurrentUser(localUser);
         localStorage.setItem("nc_current_user", JSON.stringify(localUser));
         actor.setOnlineStatus(localUser.id, true).catch(() => {});
-        // Save to saved accounts
         const updated = upsertSavedAccount({
           id: localUser.id,
           username: localUser.username,
@@ -469,7 +543,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCurrentUser(localUser);
       localStorage.setItem("nc_current_user", JSON.stringify(localUser));
       actor.setOnlineStatus(localUser.id, true).catch(() => {});
-      // Save to saved accounts
       const updated = upsertSavedAccount({
         id: localUser.id,
         username: localUser.username,
@@ -480,7 +553,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { success: true };
     } catch (e) {
       const raw = extractErrorMessage(e);
-      // Map known backend errors to friendly messages
       let friendly = raw;
       if (raw.toLowerCase().includes("username already taken")) {
         friendly =
@@ -512,7 +584,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     setUserLocation(null);
     setBackendUsers([]);
-    // Intentionally keep savedAccounts in localStorage
+    setIncomingFriendRequests([]);
+    setFollowingUsernames([]);
+    setFollowersUsernames([]);
   };
 
   const switchAccount = async (
@@ -543,7 +617,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       persistConversations(updated);
       return updated;
     });
-    // For real users (not bot), also send to backend
     if (friendId !== "bot_vibezone") {
       getActor()
         .then((actor) => actor.sendMessage(currentUser.id, friendId, text))
@@ -558,7 +631,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const actor = await getActor();
       const backendMsgs = await actor.getConversation(currentUser.id, friendId);
-      // Map backend messages to local Message format
       const mapped: Message[] = backendMsgs.map((m) => ({
         id: `${m.sender}_${m.timestamp}`,
         senderId: m.sender === currentUser.id ? "me" : m.sender,
@@ -567,9 +639,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         seen: m.seen,
         backendTimestamp: Number(m.timestamp),
       }));
-      // Merge with local messages (keep local sent messages that may not be in backend yet)
       const local = conversationsRef.current[friendId] || [];
-      // Deduplicate: prefer backend version; match by exact timestamp or same text within 1s
       const merged: Message[] = [...mapped];
       for (const localMsg of local) {
         const isDuplicate = mapped.some(
@@ -581,9 +651,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           merged.push(localMsg);
         }
       }
-      // Sort by timestamp
       merged.sort((a, b) => a.timestamp - b.timestamp);
-      // Update local state
       setConversations((prev) => {
         const updated = { ...prev, [friendId]: merged };
         persistConversations(updated);
@@ -638,6 +706,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       (r) => r.fromId === currentUser.id && r.toId === toId,
     );
     if (existing) return;
+    // Call backend follow (fire-and-forget)
+    const targetUser = backendUsersRef.current.find((u) => u.id === toId);
+    if (targetUser) {
+      getActor()
+        .then((actor) => actor.follow(targetUser.username))
+        .catch(() => {});
+    }
     const updated = [
       ...friendRequests,
       { fromId: currentUser.id, toId, status: "pending" as const },
@@ -648,6 +723,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const acceptFriendRequest = (fromId: string) => {
     if (!currentUser) return;
+    const fromUser = backendUsersRef.current.find((u) => u.id === fromId);
+    if (fromUser) {
+      getActor()
+        .then((actor) => actor.follow(fromUser.username))
+        .catch(() => {});
+    }
     const updatedReqs = friendRequests.map((r) =>
       r.fromId === fromId && r.toId === currentUser.id
         ? { ...r, status: "accepted" as const }
@@ -655,6 +736,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     setFriendRequests(updatedReqs);
     localStorage.setItem("nc_friend_requests", JSON.stringify(updatedReqs));
+    // Refresh incoming requests
+    fetchFriendRequests(currentUser);
   };
 
   const deleteUser = (userId: string) => {
@@ -669,6 +752,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const purchaseRadius = (tier: RadiusTier) => {
     if (!currentUser) return;
+    const tierOrder: Record<string, number> = {
+      free: 0,
+      basic: 1,
+      standard: 2,
+      premium: 3,
+    };
+    const maxTier = currentUser.maxGrantedTier || currentUser.radiusTier;
+    if (tierOrder[tier] > tierOrder[maxTier]) return; // silently block going above max
     const updated = { ...currentUser, radiusTier: tier };
     setCurrentUser(updated);
     localStorage.setItem("nc_current_user", JSON.stringify(updated));
@@ -698,20 +789,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const grantPurchaseToUser = async (userId: string, tier: RadiusTier) => {
-    // Call backend to persist tier change
     const actor = await getActor();
     await actor.updateUserRadiusTier(userId, tierToNumber[tier]);
-    // Update local user list state
     setUsers((prev) =>
       prev.map((u) => (u.id === userId ? { ...u, radiusTier: tier } : u)),
     );
-    // If the granted user is the currently logged-in user, update currentUser too
     if (currentUser && currentUser.id === userId) {
-      const updated = { ...currentUser, radiusTier: tier };
+      const updated = {
+        ...currentUser,
+        radiusTier: tier,
+        maxGrantedTier: tier,
+      };
       setCurrentUser(updated);
       localStorage.setItem("nc_current_user", JSON.stringify(updated));
     }
-    // Refresh from backend to sync latest state
     if (currentUser) await fetchBackendUsers(currentUser.id);
   };
 
@@ -730,10 +821,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     premium: 10000,
   };
 
-  // Backend users filtered: exclude current user and admin users, then filter by radius distance
   const filteredBackendUsers = backendUsers.filter((u) => {
     if (u.isAdmin || u.id === currentUser?.id) return false;
-    // If we have location data for both users, filter by radius tier
     if (
       userLocation &&
       u.lat !== undefined &&
@@ -749,9 +838,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const maxRadius = RADIUS_METERS[currentUser.radiusTier || "free"];
       return dist <= maxRadius;
     }
-    // If no location data available, show the user (fallback)
     return true;
   });
+
+  // Compute mutual friends (both follow each other) by username
+  const followingSet = new Set(followingUsernames);
+  const followersSet = new Set(followersUsernames);
+  const mutualFriendIds = new Set(
+    backendUsers
+      .filter(
+        (u) => followingSet.has(u.username) && followersSet.has(u.username),
+      )
+      .map((u) => u.id),
+  );
 
   const friends: FriendUser[] = [...filteredBackendUsers, BOT_USER];
 
@@ -806,6 +905,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         switchAccount,
         deleteMessage,
         deleteConversation,
+        incomingFriendRequests,
+        followingUsernames,
+        mutualFriendIds,
       }}
     >
       {children}

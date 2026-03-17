@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronLeft,
-  DollarSign,
   Gift,
   Loader2,
   Megaphone,
@@ -91,17 +90,17 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
   const [basicPrice, setBasicPrice] = useState(
     purchaseSettings
       ? (Number(purchaseSettings.basicPrice) / 100).toFixed(2)
-      : "0.99",
+      : "99.00",
   );
   const [standardPrice, setStandardPrice] = useState(
     purchaseSettings
       ? (Number(purchaseSettings.standardPrice) / 100).toFixed(2)
-      : "2.99",
+      : "299.00",
   );
   const [premiumPrice, setPremiumPrice] = useState(
     purchaseSettings
       ? (Number(purchaseSettings.premiumPrice) / 100).toFixed(2)
-      : "4.99",
+      : "499.00",
   );
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "loading" | "success" | "error"
@@ -736,16 +735,20 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                   {label}
                 </Label>
                 <div style={{ position: "relative" }}>
-                  <DollarSign
-                    size={13}
+                  <span
                     style={{
                       position: "absolute",
                       left: 10,
                       top: "50%",
                       transform: "translateY(-50%)",
                       color: isLight ? "#888" : "rgba(255,255,255,0.35)",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      lineHeight: 1,
                     }}
-                  />
+                  >
+                    ₹
+                  </span>
                   <input
                     type="number"
                     min="0"
