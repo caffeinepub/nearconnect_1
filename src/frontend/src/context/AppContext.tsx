@@ -296,7 +296,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const actor = await getActor();
       const allBE = await actor.getAllUsers();
       const mapped: FriendUser[] = allBE
-        .filter((u) => u.id !== userId && !u.settings?.showInRadius === false)
+        .filter((u) => u.id !== userId && u.settings?.showInRadius !== false)
         .map((u) => ({
           id: u.id,
           username: u.username,

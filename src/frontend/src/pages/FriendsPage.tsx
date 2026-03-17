@@ -666,6 +666,31 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                           >
                             @{person.username}
                           </p>
+                          {userLocation &&
+                            person.lat !== undefined &&
+                            person.lng !== undefined && (
+                              <p
+                                style={{
+                                  margin: 0,
+                                  fontSize: 11,
+                                  color: "rgba(99,179,237,0.75)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 3,
+                                  marginTop: 2,
+                                }}
+                              >
+                                <MapPin size={10} />
+                                {formatDistance(
+                                  getDistanceMeters(
+                                    userLocation.lat,
+                                    userLocation.lng,
+                                    person.lat,
+                                    person.lng,
+                                  ),
+                                )}
+                              </p>
+                            )}
                         </div>
                         <div style={{ display: "flex", gap: 6 }}>
                           <button
