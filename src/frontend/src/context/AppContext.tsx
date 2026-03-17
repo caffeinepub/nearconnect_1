@@ -195,7 +195,7 @@ interface AppContextValue {
   receiveMessage: (friendId: string, text: string) => void;
   friendRequests: FriendRequest[];
   sendFriendRequest: (toId: string) => void;
-  acceptFriendRequest: (fromId: string) => void;
+  acceptFriendRequest: (fromId: string) => Promise<void>;
   radiusLabel: string;
   purchaseRadius: (tier: RadiusTier) => void;
   updateSettings: (settings: Partial<User>) => void;
@@ -257,6 +257,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Keep backendUsers in a ref for use inside fetchFriendRequests
   const backendUsersRef = useRef(backendUsers);
   backendUsersRef.current = backendUsers;
+
+  // Keep users in a ref for acceptFriendRequest
+  const usersRef = useRef(users);
+  usersRef.current = users;
 
   const persistConversations = (updated: Record<string, Message[]>) => {
     localStorage.setItem("nc_conversations", JSON.stringify(updated));
@@ -702,12 +706,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const sendFriendRequest = (toId: string) => {
     if (!currentUser) return;
+    const targetUser = backendUsersRef.current.find((u) => u.id === toId);
+    // Already following this user (synced from backend) — don't double-follow
+    if (targetUser && followingUsernames.includes(targetUser.username)) return;
     const existing = friendRequests.find(
       (r) => r.fromId === currentUser.id && r.toId === toId,
     );
     if (existing) return;
     // Call backend follow (fire-and-forget)
-    const targetUser = backendUsersRef.current.find((u) => u.id === toId);
     if (targetUser) {
       getActor()
         .then((actor) => actor.follow(targetUser.username))
@@ -721,13 +727,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("nc_friend_requests", JSON.stringify(updated));
   };
 
-  const acceptFriendRequest = (fromId: string) => {
+  const acceptFriendRequest = async (fromId: string): Promise<void> => {
     if (!currentUser) return;
-    const fromUser = backendUsersRef.current.find((u) => u.id === fromId);
+    // Look up user from multiple sources to avoid timing issues
+    const fromUser =
+      backendUsersRef.current.find((u) => u.id === fromId) ||
+      usersRef.current.find((u) => u.id === fromId);
     if (fromUser) {
-      getActor()
-        .then((actor) => actor.follow(fromUser.username))
-        .catch(() => {});
+      try {
+        const actor = await getActor();
+        await actor.follow(fromUser.username);
+      } catch {
+        // silent
+      }
     }
     const updatedReqs = friendRequests.map((r) =>
       r.fromId === fromId && r.toId === currentUser.id
@@ -736,8 +748,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     setFriendRequests(updatedReqs);
     localStorage.setItem("nc_friend_requests", JSON.stringify(updatedReqs));
-    // Refresh incoming requests
-    fetchFriendRequests(currentUser);
+    // Refresh incoming requests and friends
+    await fetchFriendRequests(currentUser);
+    await refreshFriends();
   };
 
   const deleteUser = (userId: string) => {

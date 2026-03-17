@@ -12,7 +12,9 @@ import {
 } from "../context/AppContext";
 
 interface SearchPageProps {
-  onNavigate: (page: "friends" | "search" | "settings" | "admin") => void;
+  onNavigate: (
+    page: "friends" | "chats" | "search" | "settings" | "admin",
+  ) => void;
 }
 
 export function SearchPage({ onNavigate }: SearchPageProps) {

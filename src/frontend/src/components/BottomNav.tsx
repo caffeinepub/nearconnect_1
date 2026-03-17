@@ -1,16 +1,21 @@
-import { Search, Settings, Shield, Users } from "lucide-react";
+import { MessageCircle, Search, Settings, Shield, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createActorWithConfig } from "../config";
 import { useApp } from "../context/AppContext";
 
-type NavPage = "friends" | "search" | "settings" | "admin";
+type NavPage = "friends" | "chats" | "search" | "settings" | "admin";
 
 interface BottomNavProps {
   active: NavPage;
   onNavigate: (page: NavPage) => void;
+  friendRequestCount?: number;
 }
 
-export function BottomNav({ active, onNavigate }: BottomNavProps) {
+export function BottomNav({
+  active,
+  onNavigate,
+  friendRequestCount = 0,
+}: BottomNavProps) {
   const { theme, currentUser } = useApp();
   const isLight = theme === "light-clean";
   const isAdmin = currentUser?.isAdmin;
@@ -43,6 +48,12 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
       key: "friends" as NavPage,
       icon: Users,
       label: "Friends",
+      badge: friendRequestCount,
+    },
+    {
+      key: "chats" as NavPage,
+      icon: MessageCircle,
+      label: "Chats",
       badge: totalUnread,
     },
     { key: "search" as NavPage, icon: Search, label: "Search", badge: 0 },
@@ -85,7 +96,7 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
             background: "none",
             border: "none",
             cursor: "pointer",
-            padding: "4px 20px",
+            padding: "4px 16px",
             transition: "all 0.2s",
             position: "relative",
           }}
@@ -114,7 +125,10 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
                   minWidth: 16,
                   height: 16,
                   borderRadius: 8,
-                  background: "oklch(0.6 0.28 25)",
+                  background:
+                    key === "friends"
+                      ? "oklch(0.55 0.25 280)"
+                      : "oklch(0.6 0.28 25)",
                   color: "white",
                   fontSize: 9,
                   fontWeight: 700,
@@ -123,7 +137,10 @@ export function BottomNav({ active, onNavigate }: BottomNavProps) {
                   justifyContent: "center",
                   padding: "0 4px",
                   animation: "badgePulse 1.5s ease-in-out infinite",
-                  boxShadow: "0 0 8px oklch(0.6 0.28 25 / 0.7)",
+                  boxShadow:
+                    key === "friends"
+                      ? "0 0 8px oklch(0.55 0.25 280 / 0.7)"
+                      : "0 0 8px oklch(0.6 0.28 25 / 0.7)",
                 }}
               >
                 {badge > 99 ? "99+" : badge}

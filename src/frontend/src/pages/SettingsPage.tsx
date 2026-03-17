@@ -20,7 +20,9 @@ import { LiquidFluxBg } from "../components/LiquidFluxBg";
 import { RADIUS_LABELS, type RadiusTier, useApp } from "../context/AppContext";
 
 interface SettingsPageProps {
-  onNavigate: (page: "friends" | "search" | "settings" | "admin") => void;
+  onNavigate: (
+    page: "friends" | "chats" | "search" | "settings" | "admin",
+  ) => void;
   onLogout: () => void;
 }
 

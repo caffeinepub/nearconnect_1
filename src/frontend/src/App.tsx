@@ -6,13 +6,21 @@ import { useApp } from "./context/AppContext";
 import { AdminPage } from "./pages/AdminPage";
 import { AuthPage } from "./pages/AuthPage";
 import { ChatPage } from "./pages/ChatPage";
+import { ChatsListPage } from "./pages/ChatsListPage";
 import { FriendsPage } from "./pages/FriendsPage";
 import { SearchPage } from "./pages/SearchPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
 const ADMIN_PASSWORD = "Qwerty12x";
 
-type Page = "auth" | "friends" | "search" | "chat" | "settings" | "admin";
+type Page =
+  | "auth"
+  | "friends"
+  | "chats"
+  | "search"
+  | "chat"
+  | "settings"
+  | "admin";
 
 function isAdminPath(): boolean {
   return window.location.href.includes("adminproz");
@@ -179,6 +187,7 @@ function AppInner() {
   const { currentUser, logout } = useApp();
   const [page, setPage] = useState<Page>(currentUser ? "friends" : "auth");
   const [chatFriendId, setChatFriendId] = useState<string | null>(null);
+  const [chatBackPage, setChatBackPage] = useState<Page>("friends");
 
   const handleAuth = () => setPage("friends");
 
@@ -187,12 +196,15 @@ function AppInner() {
     setPage("auth");
   };
 
-  const handleOpenChat = (friendId: string) => {
+  const handleOpenChat = (friendId: string, backTo: Page = "friends") => {
     setChatFriendId(friendId);
+    setChatBackPage(backTo);
     setPage("chat");
   };
 
-  const handleNav = (dest: "friends" | "search" | "settings" | "admin") => {
+  const handleNav = (
+    dest: "friends" | "chats" | "search" | "settings" | "admin",
+  ) => {
     setPage(dest);
   };
 
@@ -214,11 +226,23 @@ function AppInner() {
     >
       <BroadcastPopup />
       {page === "friends" && (
-        <FriendsPage onNavigate={handleNav} onOpenChat={handleOpenChat} />
+        <FriendsPage
+          onNavigate={handleNav}
+          onOpenChat={(id) => handleOpenChat(id, "friends")}
+        />
+      )}
+      {page === "chats" && (
+        <ChatsListPage
+          onNavigate={handleNav}
+          onOpenChat={(id) => handleOpenChat(id, "chats")}
+        />
       )}
       {page === "search" && <SearchPage onNavigate={handleNav} />}
       {page === "chat" && chatFriendId && (
-        <ChatPage friendId={chatFriendId} onBack={() => setPage("friends")} />
+        <ChatPage
+          friendId={chatFriendId}
+          onBack={() => setPage(chatBackPage)}
+        />
       )}
       {page === "settings" && (
         <SettingsPage onNavigate={handleNav} onLogout={handleLogout} />
