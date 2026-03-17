@@ -3,9 +3,12 @@ import { Switch } from "@/components/ui/switch";
 import {
   Bell,
   Eye,
+  Instagram,
   Lock,
   LogOut,
+  Mail,
   MapPin,
+  MessageCircle,
   Moon,
   Palette,
   Sun,
@@ -48,14 +51,14 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
   const maxGrantedTier = currentUser.maxGrantedTier || currentUser.radiusTier;
   const maxGrantedLevel = tierOrder[maxGrantedTier] ?? 0;
   const basicPriceDisplay = purchaseSettings
-    ? `₹${(Number(purchaseSettings.basicPrice) / 100).toFixed(2)}`
-    : "₹99.00";
+    ? `\u20b9${(Number(purchaseSettings.basicPrice) / 100).toFixed(2)}`
+    : "\u20b999.00";
   const standardPriceDisplay = purchaseSettings
-    ? `₹${(Number(purchaseSettings.standardPrice) / 100).toFixed(2)}`
-    : "₹299.00";
+    ? `\u20b9${(Number(purchaseSettings.standardPrice) / 100).toFixed(2)}`
+    : "\u20b9299.00";
   const premiumPriceDisplay = purchaseSettings
-    ? `₹${(Number(purchaseSettings.premiumPrice) / 100).toFixed(2)}`
-    : "₹499.00";
+    ? `\u20b9${(Number(purchaseSettings.premiumPrice) / 100).toFixed(2)}`
+    : "\u20b9499.00";
   const tiers: {
     tier: RadiusTier;
     label: string;
@@ -94,9 +97,7 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
     if (locked) {
       toast(
         "Purchase this tier to unlock a larger radius. Contact admin or use the in-app upgrade.",
-        {
-          icon: "🔒",
-        },
+        { icon: "\ud83d\udd12" },
       );
       return;
     }
@@ -183,7 +184,7 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
                   color: isLight ? "#888" : "rgba(255,255,255,0.4)",
                 }}
               >
-                @{currentUser.username} · {currentUser.id}
+                @{currentUser.username} \u00b7 {currentUser.id}
               </p>
             </div>
           </div>
@@ -386,7 +387,7 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
                           marginTop: 1,
                         }}
                       >
-                        {price} · Requires upgrade
+                        {price} \u00b7 Requires upgrade
                       </span>
                     )}
                   </div>
@@ -442,6 +443,143 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
           >
             Current radius: {RADIUS_LABELS[currentUser.radiusTier]}
           </span>
+        </div>
+
+        {/* Contact Developer */}
+        <div className="glass-card" style={{ padding: 16, marginBottom: 16 }}>
+          <p
+            style={{
+              margin: "0 0 14px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: isLight ? "#888" : "rgba(255,255,255,0.4)",
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+            }}
+          >
+            Contact Developer
+          </p>
+          <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
+            {/* Instagram */}
+            <a
+              href="https://www.instagram.com/er._ankush__singh?igsh=MXJoOW5lYzdrbnM2bg=="
+              target="_blank"
+              rel="noopener noreferrer"
+              data-ocid="settings.instagram.link"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 6,
+                textDecoration: "none",
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 16,
+                  background:
+                    "linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 14px rgba(220,39,67,0.35)",
+                }}
+              >
+                <Instagram size={22} color="white" />
+              </div>
+              <span
+                style={{
+                  fontSize: 10,
+                  color: isLight ? "#888" : "rgba(255,255,255,0.45)",
+                  fontWeight: 600,
+                  letterSpacing: 0.3,
+                }}
+              >
+                Instagram
+              </span>
+            </a>
+
+            {/* WhatsApp */}
+            <a
+              href="https://wa.me/917309227544"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-ocid="settings.whatsapp.link"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 6,
+                textDecoration: "none",
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 16,
+                  background: "linear-gradient(135deg, #25D366, #128C7E)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 14px rgba(37,211,102,0.35)",
+                }}
+              >
+                <MessageCircle size={22} color="white" />
+              </div>
+              <span
+                style={{
+                  fontSize: 10,
+                  color: isLight ? "#888" : "rgba(255,255,255,0.45)",
+                  fontWeight: 600,
+                  letterSpacing: 0.3,
+                }}
+              >
+                WhatsApp
+              </span>
+            </a>
+
+            {/* Email */}
+            <a
+              href="mailto:mkumargkp111@gmail.com"
+              data-ocid="settings.email.link"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 6,
+                textDecoration: "none",
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 16,
+                  background:
+                    "linear-gradient(135deg, oklch(0.5 0.25 260), oklch(0.65 0.2 280))",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 14px rgba(100,80,255,0.35)",
+                }}
+              >
+                <Mail size={22} color="white" />
+              </div>
+              <span
+                style={{
+                  fontSize: 10,
+                  color: isLight ? "#888" : "rgba(255,255,255,0.45)",
+                  fontWeight: 600,
+                  letterSpacing: 0.3,
+                }}
+              >
+                Email
+              </span>
+            </a>
+          </div>
         </div>
 
         {/* Logout */}

@@ -91,6 +91,11 @@ const BOT_USER: FriendUser = {
   isBot: true,
 };
 
+// Friendship signal constants
+const VZ_REQ = "__VZ_FR__";
+const VZ_ACCEPT = "__VZ_FA__";
+const VZ_REJECT = "__VZ_FRJ__";
+
 function bigintToRadiusTier(n: bigint): RadiusTier {
   switch (n) {
     case 1n:
@@ -234,15 +239,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return stored ? JSON.parse(stored) : {};
     },
   );
-  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>(() => {
-    const stored = localStorage.getItem("nc_friend_requests");
-    return stored ? JSON.parse(stored) : [];
-  });
-  const [incomingFriendRequests, setIncomingFriendRequests] = useState<
-    string[]
-  >([]);
-  const [followingUsernames, setFollowingUsernames] = useState<string[]>([]);
-  const [followersUsernames, setFollowersUsernames] = useState<string[]>([]);
+  // Friendship state: maps otherId -> 'sent' | 'received' | 'mutual'
+  const [friendshipsState, setFriendshipsState] = useState<
+    Record<string, "sent" | "received" | "mutual">
+  >({});
   const [userLocation, setUserLocation] = useState<{
     lat: number;
     lng: number;
@@ -251,15 +251,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     useState<PurchaseSettings | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const backendPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const syncRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
 
-  // Keep backendUsers in a ref for use inside fetchFriendRequests
+  // Keep backendUsers in a ref for use inside syncFriendships
   const backendUsersRef = useRef(backendUsers);
   backendUsersRef.current = backendUsers;
 
-  // Keep users in a ref for acceptFriendRequest
+  // Keep users in a ref
   const usersRef = useRef(users);
   usersRef.current = users;
 
@@ -328,14 +329,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!prev) return prev;
         const fresh = localUsers.find((u) => u.id === prev.id);
         if (!fresh) return prev;
-        const newMaxTier = fresh.radiusTier; // backend's tier = max granted
+        const newMaxTier = fresh.radiusTier;
         const tierOrder: Record<string, number> = {
           free: 0,
           basic: 1,
           standard: 2,
           premium: 3,
         };
-        // Cap active tier to new max if needed
         const newActiveTier =
           tierOrder[prev.radiusTier] <= tierOrder[newMaxTier]
             ? prev.radiusTier
@@ -359,45 +359,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const fetchFriendRequests = async (user?: User | null) => {
-    const activeUser = user !== undefined ? user : currentUser;
-    if (!activeUser) return;
+  const syncFriendships = async (user: User): Promise<void> => {
+    const allUserIds = backendUsersRef.current
+      .map((u) => u.id)
+      .filter((id) => id !== user.id);
+    if (allUserIds.length === 0) return;
     try {
       const actor = await getActor();
-      const [followers, following] = await Promise.all([
-        actor.getFollowers(activeUser.username),
-        actor.getFollowing(activeUser.username),
-      ]);
-      const followingSet = new Set(following);
-      setFollowingUsernames(following);
-      setFollowersUsernames(followers);
-      // incoming = people who follow me, that I haven't followed back
-      const pending = followers.filter(
-        (username) => !followingSet.has(username),
+      const newFriendships: Record<string, "sent" | "received" | "mutual"> = {};
+      await Promise.all(
+        allUserIds.map(async (otherId) => {
+          try {
+            const msgs = await actor.getConversation(user.id, otherId);
+            const theyReqMe = msgs.some(
+              (m) => m.sender === otherId && m.text === VZ_REQ,
+            );
+            const iReqThem = msgs.some(
+              (m) => m.sender === user.id && m.text === VZ_REQ,
+            );
+            const iAccepted = msgs.some(
+              (m) => m.sender === user.id && m.text === VZ_ACCEPT,
+            );
+            const theyAccepted = msgs.some(
+              (m) => m.sender === otherId && m.text === VZ_ACCEPT,
+            );
+            const iRejected = msgs.some(
+              (m) => m.sender === user.id && m.text === VZ_REJECT,
+            );
+            if ((iReqThem && theyAccepted) || (theyReqMe && iAccepted)) {
+              newFriendships[otherId] = "mutual";
+            } else if (theyReqMe && !iRejected) {
+              newFriendships[otherId] = "received";
+            } else if (iReqThem) {
+              newFriendships[otherId] = "sent";
+            }
+          } catch {
+            // ignore per-user errors
+          }
+        }),
       );
-      // Convert usernames to userIds using backendUsersRef
-      const pendingIds = pending
-        .map(
-          (uname) =>
-            backendUsersRef.current.find((u) => u.username === uname)?.id,
-        )
-        .filter(Boolean) as string[];
-      setIncomingFriendRequests(pendingIds);
-      // Also sync localStorage for backward compat
-      const incoming = pendingIds.map((fromId) => ({
-        fromId,
-        toId: activeUser.id,
-        status: "pending" as const,
-      }));
-      // Merge with existing (keep accepted/sent)
-      setFriendRequests((prev) => {
-        const existing = prev.filter(
-          (r) => r.toId !== activeUser.id || r.status !== "pending",
-        );
-        const merged = [...existing, ...incoming];
-        localStorage.setItem("nc_friend_requests", JSON.stringify(merged));
-        return merged;
-      });
+      setFriendshipsState(newFriendships);
     } catch {
       // silent
     }
@@ -406,7 +407,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const refreshFriends = (): Promise<void> => {
     if (currentUser) {
       return fetchBackendUsers(currentUser.id).then(() =>
-        fetchFriendRequests(currentUser),
+        syncFriendships(currentUser),
       );
     }
     return Promise.resolve();
@@ -416,24 +417,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!currentUser) {
       setBackendUsers([]);
+      setFriendshipsState({});
       if (backendPollRef.current !== null) {
         clearInterval(backendPollRef.current);
         backendPollRef.current = null;
       }
+      if (syncRef.current !== null) {
+        clearInterval(syncRef.current);
+        syncRef.current = null;
+      }
       return;
     }
-    fetchBackendUsers(currentUser.id).then(() =>
-      fetchFriendRequests(currentUser),
-    );
+    fetchBackendUsers(currentUser.id).then(() => syncFriendships(currentUser));
     backendPollRef.current = setInterval(() => {
-      fetchBackendUsers(currentUser.id).then(() =>
-        fetchFriendRequests(currentUser),
-      );
+      fetchBackendUsers(currentUser.id);
     }, 10000);
+    syncRef.current = setInterval(() => {
+      syncFriendships(currentUser);
+    }, 30000);
     return () => {
       if (backendPollRef.current !== null) {
         clearInterval(backendPollRef.current);
         backendPollRef.current = null;
+      }
+      if (syncRef.current !== null) {
+        clearInterval(syncRef.current);
+        syncRef.current = null;
       }
     };
   }, [currentUser?.id]);
@@ -589,9 +598,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     setUserLocation(null);
     setBackendUsers([]);
-    setIncomingFriendRequests([]);
-    setFollowingUsernames([]);
-    setFollowersUsernames([]);
+    setFriendshipsState({});
   };
 
   const switchAccount = async (
@@ -636,14 +643,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const actor = await getActor();
       const backendMsgs = await actor.getConversation(currentUser.id, friendId);
-      const mapped: Message[] = backendMsgs.map((m) => ({
-        id: `${m.sender}_${m.timestamp}`,
-        senderId: m.sender === currentUser.id ? "me" : m.sender,
-        text: m.text,
-        timestamp: Number(m.timestamp) / 1_000_000,
-        seen: m.seen,
-        backendTimestamp: Number(m.timestamp),
-      }));
+      const mapped: Message[] = backendMsgs
+        .filter((m) => !m.text.startsWith("__VZ_"))
+        .map((m) => ({
+          id: `${m.sender}_${m.timestamp}`,
+          senderId: m.sender === currentUser.id ? "me" : m.sender,
+          text: m.text,
+          timestamp: Number(m.timestamp) / 1_000_000,
+          seen: m.seen,
+          backendTimestamp: Number(m.timestamp),
+        }));
       const local = conversationsRef.current[friendId] || [];
       const merged: Message[] = [...mapped];
       for (const localMsg of local) {
@@ -707,68 +716,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const sendFriendRequest = (toId: string) => {
     if (!currentUser) return;
-    const targetUser = backendUsersRef.current.find((u) => u.id === toId);
-    // Already following this user (synced from backend) — don't double-follow
-    if (targetUser && followingUsernames.includes(targetUser.username)) return;
-    const existing = friendRequests.find(
-      (r) => r.fromId === currentUser.id && r.toId === toId,
-    );
-    if (existing) return;
-    // Call backend follow (fire-and-forget)
-    if (targetUser) {
-      getActor()
-        .then((actor) => actor.follow(targetUser.username))
-        .catch(() => {});
-    }
-    const updated = [
-      ...friendRequests,
-      { fromId: currentUser.id, toId, status: "pending" as const },
-    ];
-    setFriendRequests(updated);
-    localStorage.setItem("nc_friend_requests", JSON.stringify(updated));
+    // Already sent or mutual — don't duplicate
+    if (
+      friendshipsState[toId] === "sent" ||
+      friendshipsState[toId] === "mutual"
+    )
+      return;
+    // Optimistically update state
+    setFriendshipsState((prev) => ({ ...prev, [toId]: "sent" }));
+    // Send signal message via backend
+    getActor()
+      .then((actor) => actor.sendMessage(currentUser.id, toId, VZ_REQ))
+      .catch(() => {});
   };
 
   const acceptFriendRequest = async (fromId: string): Promise<void> => {
     if (!currentUser) return;
-    // Look up user from multiple sources to avoid timing issues
-    const fromUser =
-      backendUsersRef.current.find((u) => u.id === fromId) ||
-      usersRef.current.find((u) => u.id === fromId);
-    if (fromUser) {
-      try {
-        const actor = await getActor();
-        await actor.follow(fromUser.username);
-      } catch {
-        // silent
-      }
+    try {
+      const actor = await getActor();
+      await actor.sendMessage(currentUser.id, fromId, VZ_ACCEPT);
+      setFriendshipsState((prev) => ({ ...prev, [fromId]: "mutual" }));
+      // Re-sync to confirm
+      await syncFriendships(currentUser);
+    } catch {
+      // silent
     }
-    const updatedReqs = friendRequests.map((r) =>
-      r.fromId === fromId && r.toId === currentUser.id
-        ? { ...r, status: "accepted" as const }
-        : r,
-    );
-    setFriendRequests(updatedReqs);
-    localStorage.setItem("nc_friend_requests", JSON.stringify(updatedReqs));
-    // Refresh incoming requests and friends
-    await fetchFriendRequests(currentUser);
-    await refreshFriends();
   };
 
   const rejectFriendRequest = async (fromId: string): Promise<void> => {
     if (!currentUser) return;
-    const fromUser =
-      backendUsersRef.current.find((u) => u.id === fromId) ||
-      usersRef.current.find((u) => u.id === fromId);
-    if (fromUser) {
-      try {
-        const actor = await getActor();
-        await actor.removeFollower(fromUser.username);
-      } catch {
-        // silent
-      }
+    try {
+      const actor = await getActor();
+      await actor.sendMessage(currentUser.id, fromId, VZ_REJECT);
+      setFriendshipsState((prev) => {
+        const n = { ...prev };
+        delete n[fromId];
+        return n;
+      });
+    } catch {
+      // silent
     }
-    setIncomingFriendRequests((prev) => prev.filter((id) => id !== fromId));
-    await fetchFriendRequests(currentUser);
   };
 
   const deleteUser = (userId: string) => {
@@ -790,7 +777,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       premium: 3,
     };
     const maxTier = currentUser.maxGrantedTier || currentUser.radiusTier;
-    if (tierOrder[tier] > tierOrder[maxTier]) return; // silently block going above max
+    if (tierOrder[tier] > tierOrder[maxTier]) return;
     const updated = { ...currentUser, radiusTier: tier };
     setCurrentUser(updated);
     localStorage.setItem("nc_current_user", JSON.stringify(updated));
@@ -846,22 +833,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const radiusLabel = RADIUS_LABELS[currentUser?.radiusTier || "free"];
 
   const filteredBackendUsers = backendUsers.filter((u) => {
-    // Exclude self and admin accounts only
     if (u.id === currentUser?.id) return false;
     if (u.username === "admin") return false;
     return true;
   });
 
-  // Compute mutual friends (both follow each other) by username
-  const followingSet = new Set(followingUsernames);
-  const followersSet = new Set(followersUsernames);
+  // Compute derived friendship values from friendshipsState
+  const incomingFriendRequests = Object.entries(friendshipsState)
+    .filter(([, s]) => s === "received")
+    .map(([id]) => id);
+
+  const followingUsernames = backendUsers
+    .filter(
+      (u) =>
+        friendshipsState[u.id] === "sent" ||
+        friendshipsState[u.id] === "mutual",
+    )
+    .map((u) => u.username);
+
   const mutualFriendIds = new Set(
-    backendUsers
-      .filter(
-        (u) => followingSet.has(u.username) && followersSet.has(u.username),
-      )
-      .map((u) => u.id),
+    Object.entries(friendshipsState)
+      .filter(([, s]) => s === "mutual")
+      .map(([id]) => id),
   );
+
+  // Backward-compat friendRequests computed value
+  const friendRequests: FriendRequest[] = currentUser
+    ? Object.entries(friendshipsState).flatMap(([userId, state]) => {
+        if (state === "sent")
+          return [
+            {
+              fromId: currentUser.id,
+              toId: userId,
+              status: "pending" as const,
+            },
+          ];
+        if (state === "received")
+          return [
+            {
+              fromId: userId,
+              toId: currentUser.id,
+              status: "pending" as const,
+            },
+          ];
+        if (state === "mutual")
+          return [
+            {
+              fromId: userId,
+              toId: currentUser.id,
+              status: "accepted" as const,
+            },
+          ];
+        return [] as FriendRequest[];
+      })
+    : [];
 
   const friends: FriendUser[] = [...filteredBackendUsers, BOT_USER];
 
