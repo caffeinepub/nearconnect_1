@@ -258,6 +258,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const watchIdRef = useRef<number | null>(null);
   const backendPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
@@ -436,8 +437,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clearInterval(syncRef.current);
         syncRef.current = null;
       }
+      if (heartbeatRef.current !== null) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
       return;
     }
+    // Set online immediately on mount (handles page reload without re-login)
+    getActor()
+      .then((actor) => actor.setOnlineStatus(currentUser.id, true))
+      .catch(() => {});
     fetchBackendUsers(currentUser.id).then(() => syncFriendships(currentUser));
     backendPollRef.current = setInterval(() => {
       fetchBackendUsers(currentUser.id);
@@ -445,6 +454,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     syncRef.current = setInterval(() => {
       syncFriendships(currentUser);
     }, 30000);
+    // Heartbeat: keep online status alive every 45 seconds
+    heartbeatRef.current = setInterval(() => {
+      getActor()
+        .then((actor) => actor.setOnlineStatus(currentUser.id, true))
+        .catch(() => {});
+    }, 45000);
     return () => {
       if (backendPollRef.current !== null) {
         clearInterval(backendPollRef.current);
@@ -453,6 +468,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (syncRef.current !== null) {
         clearInterval(syncRef.current);
         syncRef.current = null;
+      }
+      if (heartbeatRef.current !== null) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
       }
     };
   }, [currentUser?.id]);
