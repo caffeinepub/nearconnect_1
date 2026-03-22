@@ -1,6 +1,8 @@
 import { ArrowLeft, CornerUpLeft, Send, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AvatarCircle } from "../components/AvatarCircle";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
+import { VipBadge } from "../components/VipBadge";
 import { createActorWithConfig } from "../config";
 import { type Message, useApp } from "../context/AppContext";
 
@@ -490,51 +492,27 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
         >
           <ArrowLeft size={22} />
         </button>
-        <div style={{ position: "relative" }}>
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: "50%",
-              background: isBot
-                ? "linear-gradient(135deg, oklch(0.45 0.2 140), oklch(0.6 0.15 180))"
-                : "linear-gradient(135deg, oklch(0.5 0.25 240), oklch(0.65 0.2 200))",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 700,
-              fontSize: 15,
-              color: "white",
-            }}
-          >
-            {friend?.displayName?.[0] || "?"}
-          </div>
-          {friend?.online && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: 1,
-                right: 1,
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                background: "oklch(0.75 0.2 140)",
-                border: "2px solid rgba(10,10,26,0.9)",
-              }}
-            />
-          )}
-        </div>
+        <AvatarCircle
+          avatar={friend?.avatar}
+          displayName={friend?.displayName || "?"}
+          size={40}
+          isBot={isBot}
+          online={friend?.online}
+        />
         <div style={{ flex: 1 }}>
-          <p
-            style={{
-              margin: 0,
-              fontWeight: 600,
-              fontSize: 15,
-              color: isLight ? "#111" : "white",
-            }}
-          >
-            {friend?.displayName || "Unknown"}
-          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <p
+              style={{
+                margin: 0,
+                fontWeight: 600,
+                fontSize: 15,
+                color: isLight ? "#111" : "white",
+              }}
+            >
+              {friend?.displayName || "Unknown"}
+            </p>
+            <VipBadge status={friend?.vipStatus} />
+          </div>
           <p
             style={{
               margin: 0,
@@ -713,23 +691,13 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
                     Seen
                   </span>
                   <div
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: "50%",
-                      background:
-                        "linear-gradient(135deg, oklch(0.5 0.25 200), oklch(0.65 0.2 200))",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 9,
-                      fontWeight: 700,
-                      color: "white",
-                      animation: "seenPulse 2s ease-in-out infinite",
-                      boxShadow: "0 0 8px oklch(0.65 0.2 200 / 0.8)",
-                    }}
+                    style={{ animation: "seenPulse 2s ease-in-out infinite" }}
                   >
-                    {friend.displayName[0]}
+                    <AvatarCircle
+                      avatar={friend.avatar}
+                      displayName={friend.displayName}
+                      size={20}
+                    />
                   </div>
                 </div>
               )}

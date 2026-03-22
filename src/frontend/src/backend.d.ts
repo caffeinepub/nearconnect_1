@@ -24,12 +24,14 @@ export interface Coordinates {
 }
 export interface User {
     id: string;
+    vipStatus: string;
     username: string;
     radiusTier: bigint;
     displayName: string;
     settings: UserSettings;
     lastSeen: Time;
     location?: Location;
+    avatar: string;
     online: boolean;
 }
 export interface LocationInput {
@@ -82,10 +84,12 @@ export type StripeSessionStatus = {
 };
 export interface UserInput {
     id: string;
+    vipStatus: string;
     username: string;
     radiusTier: bigint;
     displayName: string;
     passwordHash: string;
+    avatar: string;
 }
 export interface StripeConfiguration {
     allowedCountries: Array<string>;
@@ -99,12 +103,14 @@ export interface PurchaseSettings {
 }
 export interface UserProfile {
     id: string;
+    vipStatus: string;
     username: string;
     radiusTier: bigint;
     displayName: string;
     settings: UserSettings;
     lastSeen: Time;
     location?: Location;
+    avatar: string;
     online: boolean;
 }
 export enum UserRole {
@@ -112,14 +118,12 @@ export enum UserRole {
     user = "user",
     guest = "guest"
 }
-export interface BroadcastMessage {
-    text: string;
-    timestamp: bigint;
-}
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     broadcastMessage(text: string): Promise<void>;
     createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
+    deleteConversation(userId: string, otherUserId: string): Promise<void>;
+    deleteMessage(userId: string, otherUserId: string, timestamp: Time): Promise<void>;
     deleteUser(userId: string): Promise<void>;
     follow(username: string): Promise<string>;
     getAllUsers(): Promise<Array<User>>;
@@ -129,7 +133,10 @@ export interface backendInterface {
     getCoordinates(): Promise<Coordinates | null>;
     getFollowers(username: string): Promise<Array<string>>;
     getFollowing(username: string): Promise<Array<string>>;
-    getLatestBroadcast(): Promise<BroadcastMessage | null>;
+    getLatestBroadcast(): Promise<{
+        text: string;
+        timestamp: Time;
+    } | null>;
     getNewMessages(userId: string, otherUserId: string, lastTimestamp: Time): Promise<Array<Message>>;
     getPurchaseSettings(): Promise<PurchaseSettings>;
     getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
@@ -149,8 +156,10 @@ export interface backendInterface {
     setOnlineStatus(userId: string, online: boolean): Promise<User>;
     setPurchaseSettings(settings: PurchaseSettings): Promise<void>;
     setStripeConfiguration(config: StripeConfiguration): Promise<void>;
+    setUserVipStatus(userId: string, status: string): Promise<User>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
     unfollow(username: string): Promise<string>;
+    updateAvatar(userId: string, avatar: string): Promise<User>;
     updateLocation(userId: string, location: LocationInput): Promise<User>;
     updateSettings(userId: string, settings: UserSettings): Promise<User>;
     updateUserRadiusTier(userId: string, tier: bigint): Promise<User>;

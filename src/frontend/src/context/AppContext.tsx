@@ -41,6 +41,8 @@ export interface User {
   online?: boolean;
   lastSeen?: string;
   createdAt?: number;
+  avatar?: string;
+  vipStatus?: string;
 }
 
 export interface FriendUser {
@@ -53,6 +55,8 @@ export interface FriendUser {
   isAdmin?: boolean;
   lat?: number;
   lng?: number;
+  avatar?: string;
+  vipStatus?: string;
 }
 
 export interface Message {
@@ -219,6 +223,8 @@ interface AppContextValue {
   incomingFriendRequests: string[];
   followingUsernames: string[];
   mutualFriendIds: Set<string>;
+  updateAvatar: (avatar: string) => Promise<void>;
+  setVipStatus: (userId: string, status: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -309,6 +315,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           lng: u.location?.lng,
           isBot: false,
           isAdmin: false,
+          avatar: u.avatar || "",
+          vipStatus: u.vipStatus || "none",
         }));
       const localUsers: User[] = allBE.map((u) => ({
         id: u.id,
@@ -322,6 +330,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         online: u.online,
         lastSeen: u.lastSeen ? String(u.lastSeen) : undefined,
         createdAt: Number(u.lastSeen) || Date.now(),
+        avatar: u.avatar || "",
+        vipStatus: u.vipStatus || "none",
       }));
       setUsers(localUsers);
       setBackendUsers(mapped);
@@ -509,6 +519,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           notifications: beUser.settings.notifications,
           online: beUser.online,
           createdAt: Date.now(),
+          avatar: beUser.avatar || "",
+          vipStatus: beUser.vipStatus || "none",
         };
         setCurrentUser(localUser);
         localStorage.setItem("nc_current_user", JSON.stringify(localUser));
@@ -541,6 +553,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         displayName,
         passwordHash: password,
         radiusTier: 0n,
+        avatar: "",
+        vipStatus: "none",
       });
       const localUser: User = {
         id: newUser.id,
@@ -830,6 +844,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPurchaseSettingsState(settings);
   };
 
+  const updateAvatar = async (avatar: string): Promise<void> => {
+    if (!currentUser) return;
+    try {
+      const actor = await getActor();
+      const updated = await actor.updateAvatar(currentUser.id, avatar);
+      const newUser = { ...currentUser, avatar: updated.avatar || avatar };
+      setCurrentUser(newUser);
+      localStorage.setItem("nc_current_user", JSON.stringify(newUser));
+    } catch {
+      // silent
+    }
+  };
+
+  const setVipStatus = async (
+    userId: string,
+    status: string,
+  ): Promise<void> => {
+    const actor = await getActor();
+    await actor.setUserVipStatus(userId, status);
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, vipStatus: status } : u)),
+    );
+    setBackendUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, vipStatus: status } : u)),
+    );
+    if (currentUser && currentUser.id === userId) {
+      const updated = { ...currentUser, vipStatus: status };
+      setCurrentUser(updated);
+      localStorage.setItem("nc_current_user", JSON.stringify(updated));
+    }
+    if (currentUser) await fetchBackendUsers(currentUser.id);
+  };
+
   const radiusLabel = RADIUS_LABELS[currentUser?.radiusTier || "free"];
 
   const filteredBackendUsers = backendUsers.filter((u) => {
@@ -904,6 +951,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           isAdmin: u.isAdmin,
           lat: u.lat,
           lng: u.lng,
+          avatar: u.avatar,
+          vipStatus: u.vipStatus,
         }),
       ),
     BOT_USER,
@@ -945,6 +994,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         incomingFriendRequests,
         followingUsernames,
         mutualFriendIds,
+        updateAvatar,
+        setVipStatus,
       }}
     >
       {children}

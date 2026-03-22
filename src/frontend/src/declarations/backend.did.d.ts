@@ -53,29 +53,35 @@ export interface TransformationOutput {
 }
 export interface User {
   'id' : string,
+  'vipStatus' : string,
   'username' : string,
   'radiusTier' : bigint,
   'displayName' : string,
   'settings' : UserSettings,
   'lastSeen' : Time,
   'location' : [] | [Location],
+  'avatar' : string,
   'online' : boolean,
 }
 export interface UserInput {
   'id' : string,
+  'vipStatus' : string,
   'username' : string,
   'radiusTier' : bigint,
   'displayName' : string,
   'passwordHash' : string,
+  'avatar' : string,
 }
 export interface UserProfile {
   'id' : string,
+  'vipStatus' : string,
   'username' : string,
   'radiusTier' : bigint,
   'displayName' : string,
   'settings' : UserSettings,
   'lastSeen' : Time,
   'location' : [] | [Location],
+  'avatar' : string,
   'online' : boolean,
 }
 export type UserRole = { 'admin' : null } |
@@ -100,6 +106,8 @@ export interface _SERVICE {
     [Array<ShoppingItem>, string, string],
     string
   >,
+  'deleteConversation' : ActorMethod<[string, string], undefined>,
+  'deleteMessage' : ActorMethod<[string, string, Time], undefined>,
   'deleteUser' : ActorMethod<[string], undefined>,
   'follow' : ActorMethod<[string], string>,
   'getAllUsers' : ActorMethod<[], Array<User>>,
@@ -109,7 +117,10 @@ export interface _SERVICE {
   'getCoordinates' : ActorMethod<[], [] | [Coordinates]>,
   'getFollowers' : ActorMethod<[string], Array<string>>,
   'getFollowing' : ActorMethod<[string], Array<string>>,
-  'getLatestBroadcast' : ActorMethod<[], [] | [{ 'text' : string, 'timestamp' : Time }]>,
+  'getLatestBroadcast' : ActorMethod<
+    [],
+    [] | [{ 'text' : string, 'timestamp' : Time }]
+  >,
   'getNewMessages' : ActorMethod<[string, string, Time], Array<Message>>,
   'getPurchaseSettings' : ActorMethod<[], PurchaseSettings>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
@@ -122,14 +133,17 @@ export interface _SERVICE {
   'isStripeConfigured' : ActorMethod<[], boolean>,
   'markConversationSeen' : ActorMethod<[string, string], undefined>,
   'register' : ActorMethod<[UserInput], User>,
+  'removeFollower' : ActorMethod<[string], string>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'saveCoordinates' : ActorMethod<[Coordinates], undefined>,
   'sendMessage' : ActorMethod<[string, string, string], undefined>,
   'setOnlineStatus' : ActorMethod<[string, boolean], User>,
   'setPurchaseSettings' : ActorMethod<[PurchaseSettings], undefined>,
   'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
+  'setUserVipStatus' : ActorMethod<[string, string], User>,
   'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
   'unfollow' : ActorMethod<[string], string>,
+  'updateAvatar' : ActorMethod<[string, string], User>,
   'updateLocation' : ActorMethod<[string, LocationInput], User>,
   'updateSettings' : ActorMethod<[string, UserSettings], User>,
   'updateUserRadiusTier' : ActorMethod<[string, bigint], User>,

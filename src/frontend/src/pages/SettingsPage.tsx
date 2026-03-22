@@ -16,7 +16,9 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { AvatarCircle } from "../components/AvatarCircle";
 import { BottomNav } from "../components/BottomNav";
 import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
@@ -37,8 +39,11 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
     updateSettings,
     purchaseRadius,
     purchaseSettings,
+    updateAvatar,
   } = useApp();
   const isLight = theme === "light-clean";
+  const [avatarInput, setAvatarInput] = useState(currentUser?.avatar || "");
+  const [avatarSaving, setAvatarSaving] = useState(false);
 
   if (!currentUser) return null;
 
@@ -148,24 +153,11 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
           style={{ padding: "16px", marginBottom: 20 }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div
-              style={{
-                width: 52,
-                height: 52,
-                borderRadius: "50%",
-                background:
-                  "linear-gradient(135deg, oklch(0.5 0.25 280), oklch(0.65 0.2 200))",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 700,
-                fontSize: 20,
-                color: "white",
-                fontFamily: "'Bricolage Grotesque', sans-serif",
-              }}
-            >
-              {currentUser.displayName[0]}
-            </div>
+            <AvatarCircle
+              avatar={currentUser.avatar}
+              displayName={currentUser.displayName}
+              size={52}
+            />
             <div>
               <p
                 style={{
@@ -186,6 +178,92 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
               >
                 @{currentUser.username} \u00b7 {currentUser.id}
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Avatar picker */}
+        <div className="glass-card" style={{ padding: 16, marginBottom: 16 }}>
+          <p
+            style={{
+              margin: "0 0 12px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: isLight ? "#888" : "rgba(255,255,255,0.4)",
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+            }}
+          >
+            Avatar
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <AvatarCircle
+              avatar={avatarInput}
+              displayName={currentUser.displayName}
+              size={52}
+            />
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 12,
+                  color: isLight ? "#888" : "rgba(255,255,255,0.45)",
+                }}
+              >
+                Type one emoji or one letter
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  data-ocid="settings.avatar.input"
+                  type="text"
+                  maxLength={2}
+                  value={avatarInput}
+                  onChange={(e) => setAvatarInput(e.target.value.slice(0, 2))}
+                  placeholder="😊 or A"
+                  style={{
+                    flex: 1,
+                    background: isLight
+                      ? "rgba(0,0,0,0.05)"
+                      : "rgba(255,255,255,0.08)",
+                    border: `1px solid ${isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.12)"}`,
+                    borderRadius: 10,
+                    padding: "8px 12px",
+                    fontSize: 18,
+                    color: isLight ? "#111" : "white",
+                    outline: "none",
+                    textAlign: "center",
+                    width: 60,
+                  }}
+                />
+                <Button
+                  data-ocid="settings.avatar.save_button"
+                  onClick={async () => {
+                    setAvatarSaving(true);
+                    await updateAvatar(avatarInput);
+                    setAvatarSaving(false);
+                  }}
+                  disabled={avatarSaving}
+                  style={{
+                    borderRadius: 10,
+                    background:
+                      "linear-gradient(135deg, oklch(0.5 0.25 280), oklch(0.65 0.2 200))",
+                    border: "none",
+                    color: "white",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    padding: "8px 16px",
+                  }}
+                >
+                  {avatarSaving ? "Saving..." : "Save"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

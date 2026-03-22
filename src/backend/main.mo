@@ -13,7 +13,6 @@ import Iter "mo:core/Iter";
 import MixinAuthorization "authorization/MixinAuthorization";
 
 
-
 actor {
   let accessControlState = Auth.initState();
 
@@ -41,6 +40,8 @@ actor {
     lastSeen : Time.Time;
     online : Bool;
     settings : UserSettings;
+    avatar : Text;
+    vipStatus : Text;
     principal : Principal;
   };
 
@@ -53,6 +54,8 @@ actor {
     lastSeen : Time.Time;
     online : Bool;
     settings : UserSettings;
+    avatar : Text;
+    vipStatus : Text;
   };
 
   public type UserProfile = {
@@ -64,6 +67,8 @@ actor {
     lastSeen : Time.Time;
     online : Bool;
     settings : UserSettings;
+    avatar : Text;
+    vipStatus : Text;
   };
 
   public type UserInput = {
@@ -72,6 +77,8 @@ actor {
     displayName : Text;
     passwordHash : Text;
     radiusTier : Nat;
+    avatar : Text;
+    vipStatus : Text;
   };
 
   public type LocationInput = {
@@ -100,7 +107,6 @@ actor {
   let following = Map.empty<Text, List.List<Text>>();
   let messages = Map.empty<Text, List.List<Message>>();
 
-  // Latest broadcast message text and timestamp
   var latestBroadcast : ?{ text : Text; timestamp : Time.Time } = null;
 
   var stripeConfiguration : ?Stripe.StripeConfiguration = null;
@@ -132,6 +138,8 @@ actor {
       lastSeen = user.lastSeen;
       online = user.online;
       settings = user.settings;
+      avatar = user.avatar;
+      vipStatus = user.vipStatus;
     };
   };
 
@@ -145,6 +153,8 @@ actor {
       lastSeen = user.lastSeen;
       online = user.online;
       settings = user.settings;
+      avatar = user.avatar;
+      vipStatus = user.vipStatus;
     };
   };
 
@@ -159,7 +169,6 @@ actor {
     principalToUserId.get(caller);
   };
 
-  // All calls are allowed - auth is handled via username/password
   func hasUserPermission(_caller : Principal) : Bool {
     true;
   };
@@ -239,8 +248,8 @@ actor {
             let updatedUser : UserInternal = {
               user with
               displayName = profile.displayName;
-              radiusTier = profile.radiusTier;
               settings = profile.settings;
+              avatar = profile.avatar;
             };
             users.add(userId, updatedUser);
           };
@@ -295,6 +304,8 @@ actor {
         showOnlineStatus = true;
         notifications = true;
       };
+      avatar = "";
+      vipStatus = "none";
       principal = caller;
     };
     users.add(input.id, newUser);
@@ -427,12 +438,12 @@ actor {
     };
   };
 
-  public shared ({ caller }) func saveCoordinates(coordinates : Coordinates) : async () {
-    coordinatesStore.add(caller, coordinates);
-  };
-
   public query ({ caller }) func getCoordinates() : async ?Coordinates {
     coordinatesStore.get(caller);
+  };
+
+  public shared ({ caller }) func saveCoordinates(coordinates : Coordinates) : async () {
+    coordinatesStore.add(caller, coordinates);
   };
 
   public shared ({ caller }) func follow(username : Text) : async Text {
@@ -660,13 +671,52 @@ actor {
     };
   };
 
-  // Radius Tier Management - removed ICP admin check per user request
+  // Radius Tier Management - Admin only
   public shared ({ caller }) func updateUserRadiusTier(userId : Text, tier : Nat) : async User {
+    if (not (Auth.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can update radius tiers");
+    };
+    
     switch (getUserInternal(userId)) {
       case (?user) {
         let updatedUser : UserInternal = {
           user with
           radiusTier = tier;
+        };
+        users.add(userId, updatedUser);
+        toPublicUser(updatedUser);
+      };
+      case (null) {
+        Runtime.trap("User not found");
+      };
+    };
+  };
+
+  public shared ({ caller }) func updateAvatar(userId : Text, avatar : Text) : async User {
+    // Verify caller owns this userId
+    if (not verifyUserOwnership(caller, userId)) {
+      Runtime.trap("Unauthorized: Can only update your own avatar");
+    };
+
+    switch (getUserInternal(userId)) {
+      case (?user) {
+        let updatedUser : UserInternal = {
+          user with avatar;
+        };
+        users.add(userId, updatedUser);
+        toPublicUser(updatedUser);
+      };
+      case (null) {
+        Runtime.trap("User not found");
+      };
+    };
+  };
+
+  public shared func setUserVipStatus(userId : Text, status : Text) : async User {
+    switch (getUserInternal(userId)) {
+      case (?user) {
+        let updatedUser : UserInternal = {
+          user with vipStatus = status;
         };
         users.add(userId, updatedUser);
         toPublicUser(updatedUser);
@@ -823,6 +873,10 @@ actor {
 
   // Admin Broadcast - stores latest broadcast and sends to all users
   public shared ({ caller }) func broadcastMessage(text : Text) : async () {
+    if (not (Auth.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can broadcast messages");
+    };
+    
     let now = Time.now();
     // Store as the latest broadcast (replaces previous)
     latestBroadcast := ?{ text; timestamp = now };

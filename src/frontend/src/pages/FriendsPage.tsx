@@ -9,9 +9,11 @@ import {
   UserPlus,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { AvatarCircle } from "../components/AvatarCircle";
 import { BottomNav } from "../components/BottomNav";
 import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
+import { VipBadge } from "../components/VipBadge";
 import {
   type FriendUser,
   formatDistance,
@@ -42,17 +44,39 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
     mutualFriendIds,
     followingUsernames,
     sendFriendRequest,
+    currentUser,
   } = useApp();
+
+  const TIER_METERS: Record<string, number> = {
+    free: 500,
+    basic: 1000,
+    standard: 5000,
+    premium: 10000,
+  };
+  const maxMeters = TIER_METERS[currentUser?.radiusTier || "free"] ?? 500;
+
+  const isWithinRadius = (f: FriendUser): boolean => {
+    if (f.isBot) return true; // always show VibeBot
+    if (!userLocation || f.lat == null || f.lng == null) return true; // no location data, show all
+    const dist = getDistanceMeters(
+      userLocation.lat,
+      userLocation.lng,
+      f.lat,
+      f.lng,
+    );
+    return dist <= maxMeters;
+  };
   const isLight = theme === "light-clean";
   const followingSet = new Set(followingUsernames);
   const [activeTab, setActiveTab] = useState<FriendsTab>("friends");
 
   // Split: mutual friends (both follow each other) + bot vs nearby strangers
+  // Only show users within selected radius tier
   const mutualAndBot = friends.filter(
-    (f) => f.isBot || mutualFriendIds.has(f.id),
+    (f) => (f.isBot || mutualFriendIds.has(f.id)) && isWithinRadius(f),
   );
   const nearbyPeople = friends.filter(
-    (f) => !f.isBot && !mutualFriendIds.has(f.id),
+    (f) => !f.isBot && !mutualFriendIds.has(f.id) && isWithinRadius(f),
   );
   const [locationRequested, setLocationRequested] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -471,39 +495,14 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                       onMouseLeave={handleMouseLeave}
                     >
                       <div style={{ position: "relative", flexShrink: 0 }}>
-                        <div
-                          style={{
-                            width: 48,
-                            height: 48,
-                            borderRadius: "50%",
-                            background: friend.isBot
-                              ? "linear-gradient(135deg, oklch(0.45 0.2 140), oklch(0.6 0.15 180))"
-                              : `linear-gradient(135deg, oklch(0.5 0.25 ${200 + i * 40}), oklch(0.65 0.2 ${260 + i * 40}))`,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontWeight: 700,
-                            fontSize: 18,
-                            color: "white",
-                            fontFamily: "'Bricolage Grotesque', sans-serif",
-                          }}
-                        >
-                          {friend.displayName[0]}
-                        </div>
-                        {friend.online && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              bottom: 1,
-                              right: 1,
-                              width: 11,
-                              height: 11,
-                              borderRadius: "50%",
-                              background: "oklch(0.75 0.2 140)",
-                              border: "2px solid rgba(10,10,26,0.9)",
-                            }}
-                          />
-                        )}
+                        <AvatarCircle
+                          avatar={friend.avatar}
+                          displayName={friend.displayName}
+                          size={48}
+                          isBot={friend.isBot}
+                          colorIndex={i}
+                          online={friend.online}
+                        />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
@@ -515,15 +514,24 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                             gap: 4,
                           }}
                         >
-                          <span
+                          <div
                             style={{
-                              fontWeight: 600,
-                              fontSize: 15,
-                              color: isLight ? "#111" : "white",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
                             }}
                           >
-                            {friend.displayName}
-                          </span>
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                fontSize: 15,
+                                color: isLight ? "#111" : "white",
+                              }}
+                            >
+                              {friend.displayName}
+                            </span>
+                            <VipBadge status={friend.vipStatus} />
+                          </div>
                           <div
                             style={{
                               display: "flex",
@@ -644,34 +652,33 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                           border: "1px solid rgba(255,255,255,0.08)",
                         }}
                       >
-                        <div
-                          style={{
-                            width: 42,
-                            height: 42,
-                            borderRadius: "50%",
-                            background: `linear-gradient(135deg, oklch(0.5 0.2 ${180 + i * 35}), oklch(0.65 0.15 ${220 + i * 35}))`,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontWeight: 700,
-                            fontSize: 16,
-                            color: "white",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {person.displayName[0]}
-                        </div>
+                        <AvatarCircle
+                          avatar={person.avatar}
+                          displayName={person.displayName}
+                          size={42}
+                          colorIndex={i}
+                          online={person.online}
+                        />
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p
+                          <div
                             style={{
-                              margin: 0,
-                              fontWeight: 600,
-                              fontSize: 14,
-                              color: isLight ? "#111" : "white",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
                             }}
                           >
-                            {person.displayName}
-                          </p>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontWeight: 600,
+                                fontSize: 14,
+                                color: isLight ? "#111" : "white",
+                              }}
+                            >
+                              {person.displayName}
+                            </p>
+                            <VipBadge status={person.vipStatus} />
+                          </div>
                           <p
                             style={{
                               margin: 0,
@@ -819,23 +826,15 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                       background: "oklch(0.55 0.2 280 / 0.06)",
                     }}
                   >
-                    <div
-                      style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: "50%",
-                        background: `linear-gradient(135deg, oklch(0.48 0.25 ${280 + i * 30}), oklch(0.62 0.2 ${240 + i * 30}))`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 700,
-                        fontSize: 18,
-                        color: "white",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {user.displayName[0]}
-                    </div>
+                    <AvatarCircle
+                      avatar={
+                        (allRealUsers.find((u) => u.id === user.id) as any)
+                          ?.avatar
+                      }
+                      displayName={user.displayName}
+                      size={48}
+                      colorIndex={i}
+                    />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p
                         style={{
@@ -845,7 +844,24 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                           color: isLight ? "#111" : "white",
                         }}
                       >
-                        {user.displayName}
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          {user.displayName}
+                          <VipBadge
+                            status={
+                              (
+                                allRealUsers.find(
+                                  (u) => u.id === user.id,
+                                ) as any
+                              )?.vipStatus
+                            }
+                          />
+                        </span>
                       </p>
                       <p
                         style={{

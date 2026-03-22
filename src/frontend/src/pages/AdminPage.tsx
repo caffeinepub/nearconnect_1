@@ -21,8 +21,10 @@ import {
   UserCheck,
 } from "lucide-react";
 import { useState } from "react";
+import { AvatarCircle } from "../components/AvatarCircle";
 import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
+import { VipBadge } from "../components/VipBadge";
 import { createActorWithConfig } from "../config";
 import { type RadiusTier, useApp } from "../context/AppContext";
 
@@ -72,6 +74,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
     purchaseSettings,
     savePurchaseSettings,
     grantPurchaseToUser,
+    setVipStatus,
   } = useApp();
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const isLight = theme === "light-clean";
@@ -82,6 +85,11 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
     {},
   );
   const [grantSuccess, setGrantSuccess] = useState<Record<string, boolean>>({});
+
+  // Per-user VIP status state
+  const [vipStatuses, setVipStatuses] = useState<Record<string, string>>({});
+  const [settingVip, setSettingVip] = useState<Record<string, boolean>>({});
+  const [vipSuccess, setVipSuccess] = useState<Record<string, boolean>>({});
 
   // Purchase settings local state
   const [purchaseEnabled, setPurchaseEnabled] = useState(
@@ -150,6 +158,23 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
       // silent
     } finally {
       setGrantingUsers((prev) => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  const handleSetVipStatus = async (userId: string) => {
+    const status = vipStatuses[userId] ?? "none";
+    setSettingVip((prev) => ({ ...prev, [userId]: true }));
+    try {
+      await setVipStatus(userId, status);
+      setVipSuccess((prev) => ({ ...prev, [userId]: true }));
+      setTimeout(
+        () => setVipSuccess((prev) => ({ ...prev, [userId]: false })),
+        2500,
+      );
+    } catch {
+      // silent
+    } finally {
+      setSettingVip((prev) => ({ ...prev, [userId]: false }));
     }
   };
 
@@ -311,25 +336,13 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                     style={{ display: "flex", alignItems: "center", gap: 12 }}
                   >
                     {/* Avatar */}
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: "50%",
-                        background: isAdminUser
-                          ? "linear-gradient(135deg, oklch(0.45 0.25 30), oklch(0.6 0.2 50))"
-                          : `linear-gradient(135deg, oklch(0.5 0.25 ${200 + i * 37}), oklch(0.65 0.2 ${250 + i * 37}))`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 700,
-                        fontSize: 17,
-                        color: "white",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {user.displayName[0].toUpperCase()}
-                    </div>
+                    <div style={{ display: "none" }} />
+                    <AvatarCircle
+                      avatar={user.avatar}
+                      displayName={user.displayName}
+                      size={44}
+                      colorIndex={i}
+                    />
 
                     {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -393,6 +406,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                         >
                           {currentTier}
                         </span>
+                        <VipBadge status={user.vipStatus} />
                       </div>
                       <p
                         style={{
@@ -554,6 +568,80 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                           : didGrantSuccess
                             ? "Granted!"
                             : "Grant"}
+                      </Button>
+                    </div>
+                  )}
+                  {/* VIP Status row */}
+                  {!isAdminUser && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        paddingTop: 10,
+                        borderTop: `1px solid ${isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)"}`,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "oklch(0.72 0.15 280)",
+                          flexShrink: 0,
+                          fontWeight: 600,
+                        }}
+                      >
+                        VIP
+                      </span>
+                      <select
+                        value={vipStatuses[user.id] ?? user.vipStatus ?? "none"}
+                        onChange={(e) =>
+                          setVipStatuses((prev) => ({
+                            ...prev,
+                            [user.id]: e.target.value,
+                          }))
+                        }
+                        style={{
+                          flex: 1,
+                          height: 32,
+                          fontSize: 12,
+                          background: isLight
+                            ? "rgba(0,0,0,0.05)"
+                            : "rgba(255,255,255,0.07)",
+                          border: `1px solid ${isLight ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.1)"}`,
+                          borderRadius: 8,
+                          color: isLight ? "#333" : "rgba(255,255,255,0.85)",
+                          padding: "0 8px",
+                          outline: "none",
+                        }}
+                      >
+                        <option value="none">None</option>
+                        <option value="vip">VIP ★</option>
+                        <option value="vvip">V.VIP ✦</option>
+                      </select>
+                      <Button
+                        data-ocid={`admin.user.vip_button.${i + 1}`}
+                        onClick={() => handleSetVipStatus(user.id)}
+                        disabled={settingVip[user.id]}
+                        size="sm"
+                        style={{
+                          borderRadius: 8,
+                          background: vipSuccess[user.id]
+                            ? "linear-gradient(135deg, oklch(0.5 0.2 145), oklch(0.65 0.18 160))"
+                            : "linear-gradient(135deg, oklch(0.45 0.25 295), oklch(0.6 0.22 280))",
+                          border: "none",
+                          color: "white",
+                          fontSize: 12,
+                          padding: "6px 14px",
+                          flexShrink: 0,
+                          transition: "background 0.3s",
+                        }}
+                      >
+                        {settingVip[user.id]
+                          ? "Setting..."
+                          : vipSuccess[user.id]
+                            ? "Set!"
+                            : "Set"}
                       </Button>
                     </div>
                   )}

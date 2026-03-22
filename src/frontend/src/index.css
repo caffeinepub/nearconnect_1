@@ -17,6 +17,9 @@
 }
 
 @layer base {
+  html {
+    font-size: 14px;
+  }
   :root {
     --radius: 1rem;
 

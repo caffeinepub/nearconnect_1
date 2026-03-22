@@ -20,12 +20,12 @@ export const ShoppingItem = IDL.Record({
   'priceInCents' : IDL.Nat,
   'productDescription' : IDL.Text,
 });
+export const Time = IDL.Int;
 export const UserSettings = IDL.Record({
   'notifications' : IDL.Bool,
   'showOnlineStatus' : IDL.Bool,
   'showInRadius' : IDL.Bool,
 });
-export const Time = IDL.Int;
 export const Location = IDL.Record({
   'lat' : IDL.Float64,
   'lng' : IDL.Float64,
@@ -33,22 +33,26 @@ export const Location = IDL.Record({
 });
 export const User = IDL.Record({
   'id' : IDL.Text,
+  'vipStatus' : IDL.Text,
   'username' : IDL.Text,
   'radiusTier' : IDL.Nat,
   'displayName' : IDL.Text,
   'settings' : UserSettings,
   'lastSeen' : Time,
   'location' : IDL.Opt(Location),
+  'avatar' : IDL.Text,
   'online' : IDL.Bool,
 });
 export const UserProfile = IDL.Record({
   'id' : IDL.Text,
+  'vipStatus' : IDL.Text,
   'username' : IDL.Text,
   'radiusTier' : IDL.Nat,
   'displayName' : IDL.Text,
   'settings' : UserSettings,
   'lastSeen' : Time,
   'location' : IDL.Opt(Location),
+  'avatar' : IDL.Text,
   'online' : IDL.Bool,
 });
 export const Message = IDL.Record({
@@ -77,10 +81,12 @@ export const StripeSessionStatus = IDL.Variant({
 });
 export const UserInput = IDL.Record({
   'id' : IDL.Text,
+  'vipStatus' : IDL.Text,
   'username' : IDL.Text,
   'radiusTier' : IDL.Nat,
   'displayName' : IDL.Text,
   'passwordHash' : IDL.Text,
+  'avatar' : IDL.Text,
 });
 export const StripeConfiguration = IDL.Record({
   'allowedCountries' : IDL.Vec(IDL.Text),
@@ -118,6 +124,8 @@ export const idlService = IDL.Service({
       [IDL.Text],
       [],
     ),
+  'deleteConversation' : IDL.Func([IDL.Text, IDL.Text], [], []),
+  'deleteMessage' : IDL.Func([IDL.Text, IDL.Text, Time], [], []),
   'deleteUser' : IDL.Func([IDL.Text], [], []),
   'follow' : IDL.Func([IDL.Text], [IDL.Text], []),
   'getAllUsers' : IDL.Func([], [IDL.Vec(User)], ['query']),
@@ -131,7 +139,11 @@ export const idlService = IDL.Service({
   'getCoordinates' : IDL.Func([], [IDL.Opt(Coordinates)], ['query']),
   'getFollowers' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
   'getFollowing' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
-  'getLatestBroadcast' : IDL.Func([], [IDL.Opt(IDL.Record({ 'text' : IDL.Text, 'timestamp' : Time }))], ['query']),
+  'getLatestBroadcast' : IDL.Func(
+      [],
+      [IDL.Opt(IDL.Record({ 'text' : IDL.Text, 'timestamp' : Time }))],
+      ['query'],
+    ),
   'getNewMessages' : IDL.Func(
       [IDL.Text, IDL.Text, Time],
       [IDL.Vec(Message)],
@@ -152,18 +164,21 @@ export const idlService = IDL.Service({
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
   'markConversationSeen' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'register' : IDL.Func([UserInput], [User], []),
+  'removeFollower' : IDL.Func([IDL.Text], [IDL.Text], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'saveCoordinates' : IDL.Func([Coordinates], [], []),
   'sendMessage' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
   'setOnlineStatus' : IDL.Func([IDL.Text, IDL.Bool], [User], []),
   'setPurchaseSettings' : IDL.Func([PurchaseSettings], [], []),
   'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+  'setUserVipStatus' : IDL.Func([IDL.Text, IDL.Text], [User], []),
   'transform' : IDL.Func(
       [TransformationInput],
       [TransformationOutput],
       ['query'],
     ),
   'unfollow' : IDL.Func([IDL.Text], [IDL.Text], []),
+  'updateAvatar' : IDL.Func([IDL.Text, IDL.Text], [User], []),
   'updateLocation' : IDL.Func([IDL.Text, LocationInput], [User], []),
   'updateSettings' : IDL.Func([IDL.Text, UserSettings], [User], []),
   'updateUserRadiusTier' : IDL.Func([IDL.Text, IDL.Nat], [User], []),
@@ -189,12 +204,12 @@ export const idlFactory = ({ IDL }) => {
     'priceInCents' : IDL.Nat,
     'productDescription' : IDL.Text,
   });
+  const Time = IDL.Int;
   const UserSettings = IDL.Record({
     'notifications' : IDL.Bool,
     'showOnlineStatus' : IDL.Bool,
     'showInRadius' : IDL.Bool,
   });
-  const Time = IDL.Int;
   const Location = IDL.Record({
     'lat' : IDL.Float64,
     'lng' : IDL.Float64,
@@ -202,22 +217,26 @@ export const idlFactory = ({ IDL }) => {
   });
   const User = IDL.Record({
     'id' : IDL.Text,
+    'vipStatus' : IDL.Text,
     'username' : IDL.Text,
     'radiusTier' : IDL.Nat,
     'displayName' : IDL.Text,
     'settings' : UserSettings,
     'lastSeen' : Time,
     'location' : IDL.Opt(Location),
+    'avatar' : IDL.Text,
     'online' : IDL.Bool,
   });
   const UserProfile = IDL.Record({
     'id' : IDL.Text,
+    'vipStatus' : IDL.Text,
     'username' : IDL.Text,
     'radiusTier' : IDL.Nat,
     'displayName' : IDL.Text,
     'settings' : UserSettings,
     'lastSeen' : Time,
     'location' : IDL.Opt(Location),
+    'avatar' : IDL.Text,
     'online' : IDL.Bool,
   });
   const Message = IDL.Record({
@@ -246,10 +265,12 @@ export const idlFactory = ({ IDL }) => {
   });
   const UserInput = IDL.Record({
     'id' : IDL.Text,
+    'vipStatus' : IDL.Text,
     'username' : IDL.Text,
     'radiusTier' : IDL.Nat,
     'displayName' : IDL.Text,
     'passwordHash' : IDL.Text,
+    'avatar' : IDL.Text,
   });
   const StripeConfiguration = IDL.Record({
     'allowedCountries' : IDL.Vec(IDL.Text),
@@ -284,6 +305,8 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Text],
         [],
       ),
+    'deleteConversation' : IDL.Func([IDL.Text, IDL.Text], [], []),
+    'deleteMessage' : IDL.Func([IDL.Text, IDL.Text, Time], [], []),
     'deleteUser' : IDL.Func([IDL.Text], [], []),
     'follow' : IDL.Func([IDL.Text], [IDL.Text], []),
     'getAllUsers' : IDL.Func([], [IDL.Vec(User)], ['query']),
@@ -297,7 +320,11 @@ export const idlFactory = ({ IDL }) => {
     'getCoordinates' : IDL.Func([], [IDL.Opt(Coordinates)], ['query']),
     'getFollowers' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
     'getFollowing' : IDL.Func([IDL.Text], [IDL.Vec(IDL.Text)], ['query']),
-    'getLatestBroadcast' : IDL.Func([], [IDL.Opt(IDL.Record({ 'text' : IDL.Text, 'timestamp' : Time }))], ['query']),
+    'getLatestBroadcast' : IDL.Func(
+        [],
+        [IDL.Opt(IDL.Record({ 'text' : IDL.Text, 'timestamp' : Time }))],
+        ['query'],
+      ),
     'getNewMessages' : IDL.Func(
         [IDL.Text, IDL.Text, Time],
         [IDL.Vec(Message)],
@@ -318,18 +345,21 @@ export const idlFactory = ({ IDL }) => {
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
     'markConversationSeen' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'register' : IDL.Func([UserInput], [User], []),
+    'removeFollower' : IDL.Func([IDL.Text], [IDL.Text], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'saveCoordinates' : IDL.Func([Coordinates], [], []),
     'sendMessage' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
     'setOnlineStatus' : IDL.Func([IDL.Text, IDL.Bool], [User], []),
     'setPurchaseSettings' : IDL.Func([PurchaseSettings], [], []),
     'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
+    'setUserVipStatus' : IDL.Func([IDL.Text, IDL.Text], [User], []),
     'transform' : IDL.Func(
         [TransformationInput],
         [TransformationOutput],
         ['query'],
       ),
     'unfollow' : IDL.Func([IDL.Text], [IDL.Text], []),
+    'updateAvatar' : IDL.Func([IDL.Text, IDL.Text], [User], []),
     'updateLocation' : IDL.Func([IDL.Text, LocationInput], [User], []),
     'updateSettings' : IDL.Func([IDL.Text, UserSettings], [User], []),
     'updateUserRadiusTier' : IDL.Func([IDL.Text, IDL.Nat], [User], []),

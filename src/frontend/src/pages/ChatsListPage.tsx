@@ -1,8 +1,10 @@
 import { MessageCircle, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { AvatarCircle } from "../components/AvatarCircle";
 import { BottomNav } from "../components/BottomNav";
 import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
+import { VipBadge } from "../components/VipBadge";
 import { createActorWithConfig } from "../config";
 import { useApp } from "../context/AppContext";
 
@@ -185,41 +187,14 @@ export function ChatsListPage({ onNavigate, onOpenChat }: ChatsListPageProps) {
                     }}
                   >
                     {/* Avatar */}
-                    <div style={{ position: "relative", flexShrink: 0 }}>
-                      <div
-                        style={{
-                          width: 50,
-                          height: 50,
-                          borderRadius: "50%",
-                          background: friend.isBot
-                            ? "linear-gradient(135deg, oklch(0.45 0.2 140), oklch(0.6 0.15 180))"
-                            : `linear-gradient(135deg, oklch(0.5 0.25 ${200 + i * 40}), oklch(0.65 0.2 ${260 + i * 40}))`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: 700,
-                          fontSize: 19,
-                          color: "white",
-                          fontFamily: "'Bricolage Grotesque', sans-serif",
-                        }}
-                      >
-                        {friend.displayName[0]}
-                      </div>
-                      {friend.online && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            bottom: 2,
-                            right: 2,
-                            width: 11,
-                            height: 11,
-                            borderRadius: "50%",
-                            background: "oklch(0.75 0.2 140)",
-                            border: "2px solid rgba(10,10,26,0.9)",
-                          }}
-                        />
-                      )}
-                    </div>
+                    <AvatarCircle
+                      avatar={friend.avatar}
+                      displayName={friend.displayName}
+                      size={50}
+                      isBot={friend.isBot}
+                      colorIndex={i}
+                      online={friend.online}
+                    />
                     {/* Content */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
@@ -230,15 +205,24 @@ export function ChatsListPage({ onNavigate, onOpenChat }: ChatsListPageProps) {
                           marginBottom: 3,
                         }}
                       >
-                        <span
+                        <div
                           style={{
-                            fontWeight: unread > 0 ? 700 : 600,
-                            fontSize: 15,
-                            color: isLight ? "#111" : "white",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
                           }}
                         >
-                          {friend.displayName}
-                        </span>
+                          <span
+                            style={{
+                              fontWeight: unread > 0 ? 700 : 600,
+                              fontSize: 15,
+                              color: isLight ? "#111" : "white",
+                            }}
+                          >
+                            {friend.displayName}
+                          </span>
+                          <VipBadge status={friend.vipStatus} />
+                        </div>
                         <span
                           style={{
                             fontSize: 11,
