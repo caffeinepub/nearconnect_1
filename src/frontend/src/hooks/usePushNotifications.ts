@@ -17,7 +17,7 @@ export function usePushNotifications({
   const prevFriendReqCount = useRef(0);
   const initialized = useRef(false);
 
-  // Request permission after delay on login
+  // Request permission after delay on login OR if already logged in (old accounts)
   useEffect(() => {
     if (!isLoggedIn || permissionRequested.current) return;
     if (!("Notification" in window)) return;
@@ -26,9 +26,11 @@ export function usePushNotifications({
       return;
     }
     if (Notification.permission === "denied") return;
+    // Delay slightly so it doesn't fire before the page renders
     const t = setTimeout(() => {
-      Notification.requestPermission();
-      permissionRequested.current = true;
+      Notification.requestPermission().then(() => {
+        permissionRequested.current = true;
+      });
     }, 2000);
     return () => clearTimeout(t);
   }, [isLoggedIn]);
