@@ -461,10 +461,7 @@ actor {
     };
   };
 
-  public shared ({ caller }) func setOnlineStatus(userId : Text, online : Bool) : async User {
-    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Can only update your own status");
-    };
+  public func setOnlineStatus(userId : Text, online : Bool) : async User {
     
     switch (getUserInternal(userId)) {
       case (?user) {

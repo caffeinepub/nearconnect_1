@@ -128,7 +128,7 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
     <div
       style={{
         position: "relative",
-        minHeight: "100dvh",
+        minHeight: "100%",
         display: "flex",
         flexDirection: "column",
       }}

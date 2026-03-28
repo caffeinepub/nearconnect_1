@@ -160,7 +160,7 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
     <div
       style={{
         position: "relative",
-        minHeight: "100dvh",
+        minHeight: "100%",
         display: "flex",
         flexDirection: "column",
       }}
