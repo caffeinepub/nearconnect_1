@@ -101,15 +101,35 @@ actor {
     seen : Bool;
   };
 
+  public type Coordinates = {
+    latitude : Text;
+    longitude : Text;
+  };
+
+  // ── Stable backing storage (survives upgrades) ──────────────────────────
+  stable var stableUsers : [(Text, UserInternal)] = [];
+  stable var stablePrincipalToUserId : [(Principal, Text)] = [];
+  stable var stableFollowers : [(Text, [Text])] = [];
+  stable var stableFollowing : [(Text, [Text])] = [];
+  stable var stableMessages : [(Text, [Message])] = [];
+  stable var stableCoordinates : [(Principal, Coordinates)] = [];
+  stable var stableLatestBroadcast : ?{ text : Text; timestamp : Time.Time } = null;
+  stable var stablePurchaseSettings : PurchaseSettings = {
+    enabled = false;
+    basicPrice = 0;
+    standardPrice = 0;
+    premiumPrice = 0;
+  };
+
+  // ── Working (heap) data structures ─────────────────────────────────────
   let users = Map.empty<Text, UserInternal>();
   let principalToUserId = Map.empty<Principal, Text>();
   let followers = Map.empty<Text, List.List<Text>>();
   let following = Map.empty<Text, List.List<Text>>();
   let messages = Map.empty<Text, List.List<Message>>();
+  let coordinatesStore = Map.empty<Principal, Coordinates>();
 
   var latestBroadcast : ?{ text : Text; timestamp : Time.Time } = null;
-
-  var stripeConfiguration : ?Stripe.StripeConfiguration = null;
   var purchaseSettings : PurchaseSettings = {
     enabled = false;
     basicPrice = 0;
@@ -117,13 +137,62 @@ actor {
     premiumPrice = 0;
   };
 
-  public type Coordinates = {
-    latitude : Text;
-    longitude : Text;
+  var stripeConfiguration : ?Stripe.StripeConfiguration = null;
+
+  // ── Persistence hooks ───────────────────────────────────────────────────
+  system func preupgrade() {
+    stableUsers := users.entries().toArray();
+    stablePrincipalToUserId := principalToUserId.entries().toArray();
+    let followersArr = List.empty<(Text, [Text])>();
+    for (entry in followers.entries()) {
+      followersArr.add((entry.0, entry.1.toArray()));
+    };
+    stableFollowers := followersArr.toArray();
+    let followingArr = List.empty<(Text, [Text])>();
+    for (entry in following.entries()) {
+      followingArr.add((entry.0, entry.1.toArray()));
+    };
+    stableFollowing := followingArr.toArray();
+    let messagesArr = List.empty<(Text, [Message])>();
+    for (entry in messages.entries()) {
+      messagesArr.add((entry.0, entry.1.toArray()));
+    };
+    stableMessages := messagesArr.toArray();
+    stableCoordinates := coordinatesStore.entries().toArray();
+    stableLatestBroadcast := latestBroadcast;
+    stablePurchaseSettings := purchaseSettings;
   };
 
-  let coordinatesStore = Map.empty<Principal, Coordinates>();
+  system func postupgrade() {
+    for ((k, v) in stableUsers.values()) {
+      users.add(k, v);
+    };
+    for ((k, v) in stablePrincipalToUserId.values()) {
+      principalToUserId.add(k, v);
+    };
+    for ((k, arr) in stableFollowers.values()) {
+      let list = List.empty<Text>();
+      for (item in arr.values()) { list.add(item); };
+      followers.add(k, list);
+    };
+    for ((k, arr) in stableFollowing.values()) {
+      let list = List.empty<Text>();
+      for (item in arr.values()) { list.add(item); };
+      following.add(k, list);
+    };
+    for ((k, arr) in stableMessages.values()) {
+      let list = List.empty<Message>();
+      for (item in arr.values()) { list.add(item); };
+      messages.add(k, list);
+    };
+    for ((k, v) in stableCoordinates.values()) {
+      coordinatesStore.add(k, v);
+    };
+    latestBroadcast := stableLatestBroadcast;
+    purchaseSettings := stablePurchaseSettings;
+  };
 
+  // ── Helper functions ────────────────────────────────────────────────────
   func getUserInternal(userId : Text) : ?UserInternal {
     users.get(userId);
   };
@@ -173,7 +242,7 @@ actor {
     true;
   };
 
-  // Stripe Payment Integration
+  // ── Stripe Payment Integration ──────────────────────────────────────────
   public query func isStripeConfigured() : async Bool {
     stripeConfiguration != null;
   };
@@ -277,7 +346,6 @@ actor {
   };
 
   public shared ({ caller }) func register(input : UserInput) : async User {
-    // Only check username uniqueness - multiple accounts per device/principal are allowed
     let allUsers = users.values().toArray();
     let usernameExists = allUsers.find(
       func(user) { user.username == input.username }
@@ -309,7 +377,6 @@ actor {
       principal = caller;
     };
     users.add(input.id, newUser);
-    // Only map principal to userId if not already mapped (first account from this principal)
     switch (principalToUserId.get(caller)) {
       case (null) { principalToUserId.add(caller, input.id) };
       case (?_) {};
@@ -336,7 +403,6 @@ actor {
   };
 
   public shared ({ caller }) func updateLocation(userId : Text, location : LocationInput) : async User {
-    // Verify caller owns this userId or is admin
     if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only update your own location");
     };
@@ -396,7 +462,6 @@ actor {
   };
 
   public shared ({ caller }) func setOnlineStatus(userId : Text, online : Bool) : async User {
-    // Verify caller owns this userId or is admin
     if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only update your own status");
     };
@@ -418,7 +483,6 @@ actor {
   };
 
   public shared ({ caller }) func updateSettings(userId : Text, settings : UserSettings) : async User {
-    // Verify caller owns this userId or is admin
     if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only update your own settings");
     };
@@ -529,7 +593,6 @@ actor {
     "Successfully unfollowed " # username;
   };
 
-  // Remove a follower - called by the person being followed to reject a follow/friend request
   public shared ({ caller }) func removeFollower(followerUsername : Text) : async Text {
     let ownUsername : Text = switch (principalToUserId.get(caller)) {
       case (?userId) {
@@ -541,7 +604,6 @@ actor {
       case (null) { Runtime.trap("User not registered") };
     };
 
-    // Remove followerUsername from own followers list
     switch (followers.get(ownUsername)) {
       case (?followersList) {
         let newFollowersList = List.empty<Text>();
@@ -555,7 +617,6 @@ actor {
       case (null) {};
     };
 
-    // Remove ownUsername from followerUsername's following list
     switch (following.get(followerUsername)) {
       case (?followingList) {
         let newFollowingList = List.empty<Text>();
@@ -586,14 +647,11 @@ actor {
     };
   };
 
-  // Chat Messaging
   public shared ({ caller }) func sendMessage(sender : Text, recipient : Text, text : Text) : async () {
-    // Verify caller owns the sender userId
     if (not verifyUserOwnership(caller, sender)) {
       Runtime.trap("Unauthorized: Can only send messages as yourself");
     };
 
-    // Verify recipient exists
     switch (users.get(recipient)) {
       case (null) { Runtime.trap("Recipient user not found") };
       case (?_) {};
@@ -607,7 +665,6 @@ actor {
       seen = false;
     };
 
-    // Store message in sender's conversation
     let senderConversationKey = sender # "-" # recipient;
     let senderMessages = messages.get(senderConversationKey);
     let updatedSenderMessages = switch (senderMessages) {
@@ -623,7 +680,6 @@ actor {
     };
     messages.add(senderConversationKey, updatedSenderMessages);
 
-    // Store message in recipient's conversation
     let recipientConversationKey = recipient # "-" # sender;
     let recipientMessages = messages.get(recipientConversationKey);
     let updatedRecipientMessages = switch (recipientMessages) {
@@ -641,7 +697,6 @@ actor {
   };
 
   public query ({ caller }) func getConversation(userId : Text, otherUserId : Text) : async [Message] {
-    // Verify caller owns userId or is admin
     if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only view your own conversations");
     };
@@ -654,7 +709,6 @@ actor {
   };
 
   public query ({ caller }) func getNewMessages(userId : Text, otherUserId : Text, lastTimestamp : Time.Time) : async [Message] {
-    // Verify caller owns userId or is admin
     if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only view your own messages");
     };
@@ -671,7 +725,6 @@ actor {
     };
   };
 
-  // Radius Tier Management - Admin only
   public shared ({ caller }) func updateUserRadiusTier(userId : Text, tier : Nat) : async User {
     if (not (Auth.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can update radius tiers");
@@ -693,7 +746,6 @@ actor {
   };
 
   public shared ({ caller }) func updateAvatar(userId : Text, avatar : Text) : async User {
-    // Verify caller owns this userId
     if (not verifyUserOwnership(caller, userId)) {
       Runtime.trap("Unauthorized: Can only update your own avatar");
     };
@@ -727,26 +779,18 @@ actor {
     };
   };
 
-  // Mark all messages in a conversation as seen
-  // Also updates the sender's copy so they see the double tick
   public shared ({ caller }) func markConversationSeen(userId : Text, otherUserId : Text) : async () {
-    // Verify caller owns userId or is admin
     if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only update your own messages");
     };
 
-    // Mark messages as seen in recipient's own conversation key (userId-otherUserId)
-    // These are messages sent by otherUserId to userId
     let conversationKey = userId # "-" # otherUserId;
     switch (messages.get(conversationKey)) {
       case (?msgs) {
         let updatedMessages = List.empty<Message>();
         for (msg in msgs.values()) {
           if (msg.recipient == userId and not msg.seen) {
-            updatedMessages.add({
-              msg with
-              seen = true;
-            });
+            updatedMessages.add({ msg with seen = true });
           } else {
             updatedMessages.add(msg);
           };
@@ -756,17 +800,13 @@ actor {
       case (null) {};
     };
 
-    // Also update the sender's copy (otherUserId-userId) so the sender sees double ticks
     let senderConversationKey = otherUserId # "-" # userId;
     switch (messages.get(senderConversationKey)) {
       case (?msgs) {
         let updatedMessages = List.empty<Message>();
         for (msg in msgs.values()) {
           if (msg.sender == otherUserId and msg.recipient == userId and not msg.seen) {
-            updatedMessages.add({
-              msg with
-              seen = true;
-            });
+            updatedMessages.add({ msg with seen = true });
           } else {
             updatedMessages.add(msg);
           };
@@ -777,9 +817,7 @@ actor {
     };
   };
 
-  // Get count of unread messages in a conversation
   public query ({ caller }) func getUnreadCount(userId : Text, otherUserId : Text) : async Nat {
-    // Verify caller owns userId or is admin
     if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only view your own messages");
     };
@@ -788,9 +826,7 @@ actor {
     switch (messages.get(conversationKey)) {
       case (?msgs) {
         let filtered = msgs.toArray().filter(
-          func(msg) {
-            msg.recipient == userId and not msg.seen
-          }
+          func(msg) { msg.recipient == userId and not msg.seen }
         );
         filtered.size();
       };
@@ -798,22 +834,17 @@ actor {
     };
   };
 
-  // Get total unread messages count for a user across all conversations
   public query ({ caller }) func getTotalUnreadCount(userId : Text) : async Nat {
-    // Verify caller owns userId or is admin
     if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only view your own messages");
     };
 
     var totalUnread : Nat = 0;
     for ((key, msgs) in messages.entries()) {
-      // Check if this conversation involves the user
       let parts = key.split(#char '-').toArray();
       if (parts.size() == 2 and parts[0] == userId) {
         let filtered = msgs.toArray().filter(
-          func(msg) {
-            msg.recipient == userId and not msg.seen
-          }
+          func(msg) { msg.recipient == userId and not msg.seen }
         );
         totalUnread += filtered.size();
       };
@@ -821,36 +852,29 @@ actor {
     totalUnread;
   };
 
-  // Delete a single message by timestamp (deletes from both sides)
   public shared ({ caller }) func deleteMessage(userId : Text, otherUserId : Text, timestamp : Time.Time) : async () {
     if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only delete your own messages");
     };
 
-    // Remove from userId's side
     let key1 = userId # "-" # otherUserId;
     switch (messages.get(key1)) {
       case (?msgs) {
         let updated = List.empty<Message>();
         for (msg in msgs.values()) {
-          if (msg.timestamp != timestamp) {
-            updated.add(msg);
-          };
+          if (msg.timestamp != timestamp) { updated.add(msg); };
         };
         messages.add(key1, updated);
       };
       case (null) {};
     };
 
-    // Remove from otherUserId's side
     let key2 = otherUserId # "-" # userId;
     switch (messages.get(key2)) {
       case (?msgs) {
         let updated = List.empty<Message>();
         for (msg in msgs.values()) {
-          if (msg.timestamp != timestamp) {
-            updated.add(msg);
-          };
+          if (msg.timestamp != timestamp) { updated.add(msg); };
         };
         messages.add(key2, updated);
       };
@@ -858,27 +882,21 @@ actor {
     };
   };
 
-  // Delete entire conversation (both sides)
   public shared ({ caller }) func deleteConversation(userId : Text, otherUserId : Text) : async () {
     if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only delete your own conversations");
     };
 
-    let key1 = userId # "-" # otherUserId;
-    messages.remove(key1);
-
-    let key2 = otherUserId # "-" # userId;
-    messages.remove(key2);
+    messages.remove(userId # "-" # otherUserId);
+    messages.remove(otherUserId # "-" # userId);
   };
 
-  // Admin Broadcast - stores latest broadcast and sends to all users
   public shared ({ caller }) func broadcastMessage(text : Text) : async () {
     if (not (Auth.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can broadcast messages");
     };
     
     let now = Time.now();
-    // Store as the latest broadcast (replaces previous)
     latestBroadcast := ?{ text; timestamp = now };
 
     let allUsers = users.values().toArray();
@@ -891,7 +909,6 @@ actor {
         seen = false;
       };
 
-      // Store in recipient's conversation with system
       let conversationKey = user.id # "-system";
       let userMessages = messages.get(conversationKey);
       let updatedMessages = switch (userMessages) {
@@ -909,7 +926,6 @@ actor {
     };
   };
 
-  // Get the latest broadcast message (text + timestamp) - available to all users
   public query func getLatestBroadcast() : async ?{ text : Text; timestamp : Time.Time } {
     latestBroadcast;
   };

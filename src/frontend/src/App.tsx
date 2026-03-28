@@ -1,5 +1,5 @@
 import { Toaster } from "@/components/ui/sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BroadcastPopup } from "./components/BroadcastPopup";
 import { AppProvider } from "./context/AppContext";
 import { useApp } from "./context/AppContext";
@@ -28,6 +28,37 @@ function isAdminPath(): boolean {
 
 function hasAdminSession(): boolean {
   return sessionStorage.getItem("nc_admin_access") === "granted";
+}
+
+function parseHash(): { page: Page; chatId: string | null } {
+  const hash = window.location.hash.replace("#", "");
+  const [path, query] = hash.split("?");
+  const params = new URLSearchParams(query || "");
+
+  switch (path) {
+    case "friends":
+      return { page: "friends", chatId: null };
+    case "chats":
+      return { page: "chats", chatId: null };
+    case "search":
+      return { page: "search", chatId: null };
+    case "settings":
+      return { page: "settings", chatId: null };
+    case "admin":
+      return { page: "admin", chatId: null };
+    case "chat": {
+      const id = params.get("id");
+      return { page: "chat", chatId: id };
+    }
+    default:
+      return { page: "auth", chatId: null };
+  }
+}
+
+function navigate(page: Page, params?: Record<string, string>) {
+  const query = params ? `?${new URLSearchParams(params).toString()}` : "";
+  window.history.pushState({}, "", `#${page}${query}`);
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 function AdminGate() {
@@ -185,71 +216,144 @@ function AdminGate() {
 
 function AppInner() {
   const { currentUser, logout } = useApp();
-  const [page, setPage] = useState<Page>(currentUser ? "friends" : "auth");
-  const [chatFriendId, setChatFriendId] = useState<string | null>(null);
-  const [chatBackPage, setChatBackPage] = useState<Page>("friends");
+  const didMountRef = useRef(false);
 
-  const handleAuth = () => setPage("friends");
+  const [page, setPage] = useState<Page>(() => {
+    const { page: p } = parseHash();
+    if (!currentUser && p !== "auth") return "auth";
+    if (currentUser && p === "auth") return "friends";
+    return p;
+  });
+  const [chatFriendId, setChatFriendId] = useState<string | null>(() => {
+    const { chatId } = parseHash();
+    return chatId;
+  });
+
+  // On mount, fix hash if logged-in user is on auth route
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      if (currentUser) {
+        const { page: p } = parseHash();
+        if (p === "auth") {
+          window.history.replaceState({}, "", "#friends");
+          setPage("friends");
+        }
+      }
+    }
+  });
+
+  // Sync page state from hash on popstate
+  useEffect(() => {
+    const handlePopState = () => {
+      const { page: p, chatId } = parseHash();
+      // If logged in and back button leads to auth, stay on friends
+      if (currentUser && p === "auth") {
+        window.history.replaceState({}, "", "#friends");
+        setPage("friends");
+        return;
+      }
+      if (!currentUser && p !== "auth") {
+        setPage("auth");
+        return;
+      }
+      setPage(p);
+      if (chatId) setChatFriendId(chatId);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [currentUser]);
+
+  // Auth guard: if no user and not on auth page, redirect
+  useEffect(() => {
+    if (!currentUser && page !== "auth") {
+      navigate("auth");
+      setPage("auth");
+    }
+  }, [currentUser, page]);
+
+  const handleAuth = () => {
+    navigate("friends");
+    setPage("friends");
+  };
 
   const handleLogout = () => {
     logout();
+    navigate("auth");
     setPage("auth");
   };
 
-  const handleOpenChat = (friendId: string, backTo: Page = "friends") => {
+  const handleOpenChat = (friendId: string) => {
     setChatFriendId(friendId);
-    setChatBackPage(backTo);
+    navigate("chat", { id: friendId });
     setPage("chat");
   };
 
   const handleNav = (
     dest: "friends" | "chats" | "search" | "settings" | "admin",
   ) => {
+    navigate(dest);
     setPage(dest);
   };
 
-  if (!currentUser && page !== "auth") {
-    return <AuthPage onAuth={handleAuth} />;
-  }
-
   if (page === "auth") return <AuthPage onAuth={handleAuth} />;
 
+  // Fixed-position container prevents dvh-induced layout shifts on mobile
   return (
     <div
       style={{
+        position: "fixed",
+        top: 0,
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "100%",
         maxWidth: 430,
-        margin: "0 auto",
-        minHeight: "100dvh",
-        position: "relative",
+        height: "100%",
+        overflow: "hidden",
         boxShadow: "0 0 80px rgba(80,100,255,0.15)",
+        willChange: "transform",
+        backfaceVisibility: "hidden",
       }}
     >
       <BroadcastPopup />
-      {page === "friends" && (
-        <FriendsPage
-          onNavigate={handleNav}
-          onOpenChat={(id) => handleOpenChat(id, "friends")}
-        />
-      )}
-      {page === "chats" && (
-        <ChatsListPage
-          onNavigate={handleNav}
-          onOpenChat={(id) => handleOpenChat(id, "chats")}
-        />
-      )}
-      {page === "search" && <SearchPage onNavigate={handleNav} />}
-      {page === "chat" && chatFriendId && (
-        <ChatPage
-          friendId={chatFriendId}
-          onBack={() => setPage(chatBackPage)}
-        />
-      )}
-      {page === "settings" && (
-        <SettingsPage onNavigate={handleNav} onLogout={handleLogout} />
-      )}
-      {page === "admin" && currentUser?.isAdmin && (
-        <AdminPage onNavigate={handleNav} />
-      )}
+      {/* Scrollable page content area — leaves room for fixed bottom nav */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 72,
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        {page === "friends" && (
+          <FriendsPage
+            onNavigate={handleNav}
+            onOpenChat={(id) => handleOpenChat(id)}
+          />
+        )}
+        {page === "chats" && (
+          <ChatsListPage
+            onNavigate={handleNav}
+            onOpenChat={(id) => handleOpenChat(id)}
+          />
+        )}
+        {page === "search" && <SearchPage onNavigate={handleNav} />}
+        {page === "chat" && chatFriendId && (
+          <ChatPage
+            friendId={chatFriendId}
+            onBack={() => window.history.back()}
+          />
+        )}
+        {page === "settings" && (
+          <SettingsPage onNavigate={handleNav} onLogout={handleLogout} />
+        )}
+        {page === "admin" && currentUser?.isAdmin && (
+          <AdminPage onNavigate={handleNav} />
+        )}
+      </div>
     </div>
   );
 }
@@ -257,16 +361,6 @@ function AppInner() {
 export default function App() {
   const [adminPath] = useState(() => isAdminPath());
   const [adminSession] = useState(() => hasAdminSession());
-
-  // Standard back navigation
-  useEffect(() => {
-    window.history.pushState(null, "", window.location.href);
-    const handlePopState = () => {
-      window.history.pushState(null, "", window.location.href);
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
 
   if (adminPath && !adminSession) {
     return <AdminGate />;
