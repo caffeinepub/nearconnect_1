@@ -34,6 +34,7 @@ export function ChatsListPage({ onNavigate, onOpenChat }: ChatsListPageProps) {
     theme,
     currentUser,
     deleteConversation,
+    deletedConversationIds,
     incomingFriendRequests,
   } = useApp();
   const isLight = theme === "light-clean";
@@ -46,7 +47,10 @@ export function ChatsListPage({ onNavigate, onOpenChat }: ChatsListPageProps) {
       const msgs = getConversation(f.id);
       return { friend: f, msgs };
     })
-    .filter(({ msgs }) => msgs.length > 0)
+    .filter(
+      ({ friend, msgs }) =>
+        msgs.length > 0 && !deletedConversationIds.has(friend.id),
+    )
     .sort((a, b) => {
       const aLast = a.msgs[a.msgs.length - 1]?.timestamp ?? 0;
       const bLast = b.msgs[b.msgs.length - 1]?.timestamp ?? 0;

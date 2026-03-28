@@ -191,6 +191,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
   const [successType, setSuccessType] = useState<"login" | "signup" | null>(
     null,
   );
+  const [successName, setSuccessName] = useState("");
   const stylesInjected = useRef(false);
 
   const [selectedAccount, setSelectedAccount] = useState<SavedAccount | null>(
@@ -222,6 +223,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
     if (view === "login") {
       const ok = await login(username.trim(), password);
       if (ok) {
+        setSuccessName(username.trim());
         setSuccessType("login");
         await new Promise((r) => setTimeout(r, 700));
         onAuth();
@@ -241,6 +243,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
         password,
       );
       if (result.success) {
+        setSuccessName(username.trim());
         setSuccessType("signup");
         await new Promise((r) => setTimeout(r, 700));
         onAuth();
@@ -260,6 +263,7 @@ export function AuthPage({ onAuth }: AuthPageProps) {
     await new Promise((r) => setTimeout(r, 400));
     const ok = await switchAccount(selectedAccount.username, switcherPassword);
     if (ok) {
+      setSuccessName(selectedAccount.username);
       setSuccessType("login");
       await new Promise((r) => setTimeout(r, 700));
       onAuth();
@@ -382,7 +386,8 @@ export function AuthPage({ onAuth }: AuthPageProps) {
                 "Welcome to VibeZone!"
               ) : (
                 <>
-                  Welcome back <span className="welcome-back-wave">👋</span>
+                  Welcome back, {successName}!{" "}
+                  <span className="welcome-back-wave">👋</span>
                 </>
               )}
             </h2>

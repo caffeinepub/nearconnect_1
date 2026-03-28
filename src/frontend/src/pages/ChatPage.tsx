@@ -6,6 +6,8 @@ import { VipBadge } from "../components/VipBadge";
 import { createActorWithConfig } from "../config";
 import { type Message, useApp } from "../context/AppContext";
 
+const VZ_PROTOCOL = new Set(["__VZ_FR__", "__VZ_FA__", "__VZ_FRJ__"]);
+
 interface ChatPageProps {
   friendId: string;
   onBack: () => void;
@@ -247,6 +249,7 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
     receiveMessage,
     deleteMessage,
     deleteConversation,
+    deletedConversationIds,
     theme,
     currentUser,
   } = useApp();
@@ -284,20 +287,23 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
     const currentUserId = currentUser.id;
 
     const fetchMessages = async () => {
+      if (deletedConversationIds.has(friendId)) return;
       try {
         const actor = await createActorWithConfig();
         const backendMsgs = await actor.getConversation(
           currentUserId,
           friendId,
         );
-        const mapped: Message[] = backendMsgs.map((m) => ({
-          id: `${m.sender}_${m.timestamp}`,
-          senderId: m.sender === currentUserId ? "me" : m.sender,
-          text: m.text,
-          timestamp: Number(m.timestamp) / 1_000_000,
-          seen: m.seen,
-          backendTimestamp: Number(m.timestamp),
-        }));
+        const mapped: Message[] = backendMsgs
+          .filter((m) => !VZ_PROTOCOL.has(m.text))
+          .map((m) => ({
+            id: `${m.sender}_${m.timestamp}`,
+            senderId: m.sender === currentUserId ? "me" : m.sender,
+            text: m.text,
+            timestamp: Number(m.timestamp) / 1_000_000,
+            seen: m.seen,
+            backendTimestamp: Number(m.timestamp),
+          }));
         // Merge: keep optimistic local messages not yet confirmed in backend
         setMessages((prev) => {
           const localOnly = prev.filter(
@@ -318,7 +324,7 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
       }
     };
 
-    fetchMessages();
+    if (!deletedConversationIds.has(friendId)) fetchMessages();
     pollRef.current = setInterval(fetchMessages, 3000);
     return () => {
       if (pollRef.current !== null) {
@@ -326,7 +332,7 @@ export function ChatPage({ friendId, onBack }: ChatPageProps) {
         pollRef.current = null;
       }
     };
-  }, [friendId, isBot, currentUser?.id]);
+  }, [friendId, isBot, currentUser?.id, deletedConversationIds]);
 
   // Mark messages as seen when chat is opened
   useEffect(() => {

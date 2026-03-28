@@ -225,6 +225,7 @@ interface AppContextValue {
   mutualFriendIds: Set<string>;
   updateAvatar: (avatar: string) => Promise<void>;
   setVipStatus: (userId: string, status: string) => Promise<void>;
+  deletedConversationIds: Set<string>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -642,7 +643,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const getConversation = (friendId: string): Message[] => {
-    return conversations[friendId] || [];
+    return (conversations[friendId] || []).filter(
+      (m) => !m.text.startsWith("__VZ_"),
+    );
   };
 
   const sendMessage = (friendId: string, text: string, replyTo?: string) => {
@@ -738,13 +741,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const [deletedConversationIds, setDeletedConversationIds] = useState<
+    Set<string>
+  >(new Set());
+
   const deleteConversation = (friendId: string) => {
+    setDeletedConversationIds((prev) => new Set([...prev, friendId]));
     setConversations((prev) => {
       const updated = { ...prev };
       delete updated[friendId];
       persistConversations(updated);
       return updated;
     });
+    if (currentUser) {
+      getActor()
+        .then((actor) => actor.deleteConversation(currentUser.id, friendId))
+        .catch(() => {});
+    }
   };
 
   const sendFriendRequest = (toId: string) => {
@@ -1015,6 +1028,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         mutualFriendIds,
         updateAvatar,
         setVipStatus,
+        deletedConversationIds,
       }}
     >
       {children}
