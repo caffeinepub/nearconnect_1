@@ -6,6 +6,7 @@ import { BottomNav } from "../components/BottomNav";
 import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
 import {
+  type FriendUser,
   formatDistance,
   getDistanceMeters,
   useApp,
@@ -16,6 +17,13 @@ interface SearchPageProps {
     page: "friends" | "chats" | "search" | "settings" | "admin",
   ) => void;
 }
+
+const TIER_METERS: Record<string, number> = {
+  free: 500,
+  basic: 1000,
+  standard: 5000,
+  premium: 10000,
+};
 
 export function SearchPage({ onNavigate }: SearchPageProps) {
   const {
@@ -29,15 +37,30 @@ export function SearchPage({ onNavigate }: SearchPageProps) {
   const [query, setQuery] = useState("");
   const isLight = theme === "light-clean";
 
+  const maxMeters = TIER_METERS[currentUser?.radiusTier || "free"] ?? 500;
+
+  const isWithinRadius = (u: FriendUser): boolean => {
+    if (u.isBot) return true;
+    if (!userLocation || u.lat == null || u.lng == null) return true;
+    const dist = getDistanceMeters(
+      userLocation.lat,
+      userLocation.lng,
+      u.lat,
+      u.lng,
+    );
+    return dist <= maxMeters;
+  };
+
   const results =
     query.trim().length > 0
       ? allUsers.filter(
           (u) =>
-            u.username.toLowerCase().includes(query.toLowerCase()) ||
-            u.id.toLowerCase().includes(query.toLowerCase()) ||
-            u.displayName.toLowerCase().includes(query.toLowerCase()),
+            isWithinRadius(u) &&
+            (u.username.toLowerCase().includes(query.toLowerCase()) ||
+              u.id.toLowerCase().includes(query.toLowerCase()) ||
+              u.displayName.toLowerCase().includes(query.toLowerCase())),
         )
-      : allUsers;
+      : allUsers.filter(isWithinRadius);
 
   const getRequestStatus = (toId: string) => {
     if (!currentUser) return null;

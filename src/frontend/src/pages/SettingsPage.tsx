@@ -22,6 +22,7 @@ import { AvatarCircle } from "../components/AvatarCircle";
 import { BottomNav } from "../components/BottomNav";
 import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
+import { PurchaseQRSheet } from "../components/PurchaseQRSheet";
 import { RADIUS_LABELS, type RadiusTier, useApp } from "../context/AppContext";
 
 interface SettingsPageProps {
@@ -44,6 +45,9 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
   const isLight = theme === "light-clean";
   const [avatarInput, setAvatarInput] = useState(currentUser?.avatar || "");
   const [avatarSaving, setAvatarSaving] = useState(false);
+  const [purchaseSheetOpen, setPurchaseSheetOpen] = useState(false);
+  const [purchaseSheetTier, setPurchaseSheetTier] = useState("");
+  const [purchaseSheetPrice, setPurchaseSheetPrice] = useState("");
 
   if (!currentUser) return null;
 
@@ -98,15 +102,26 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
     { key: "neon-pulse" as const, icon: Palette, label: "Neon" },
   ];
 
-  const handleTierClick = (tier: RadiusTier, locked: boolean) => {
+  const handleTierClick = (
+    tier: RadiusTier,
+    locked: boolean,
+    tierLabel: string,
+    tierPrice: string,
+  ) => {
     if (locked) {
-      toast(
-        "Purchase this tier to unlock a larger radius. Contact admin or use the in-app upgrade.",
-        { icon: "\ud83d\udd12" },
-      );
+      setPurchaseSheetTier(tierLabel);
+      setPurchaseSheetPrice(tierPrice);
+      setPurchaseSheetOpen(true);
       return;
     }
     purchaseRadius(tier);
+  };
+
+  const handlePurchaseManualClose = () => {
+    toast(
+      "If your tier was not upgraded, please contact: WhatsApp: 7309227544 or Instagram: @er._ankush__singh",
+      { duration: 8000 },
+    );
   };
 
   return (
@@ -410,7 +425,7 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
                   type="button"
                   key={tier}
                   data-ocid={`settings.radius.${tier}.button`}
-                  onClick={() => handleTierClick(tier, locked)}
+                  onClick={() => handleTierClick(tier, locked, label, price)}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -687,6 +702,13 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
       {/* Footer always at bottom, above BottomNav */}
       <div style={{ position: "relative", zIndex: 1, paddingBottom: 80 }}>
         <DevFooter />
+        <PurchaseQRSheet
+          open={purchaseSheetOpen}
+          onClose={() => setPurchaseSheetOpen(false)}
+          onManualClose={handlePurchaseManualClose}
+          tierName={purchaseSheetTier}
+          price={purchaseSheetPrice}
+        />
       </div>
       <BottomNav active="settings" onNavigate={onNavigate} />
     </div>

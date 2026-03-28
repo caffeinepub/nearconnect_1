@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { BroadcastPopup } from "./components/BroadcastPopup";
 import { AppProvider } from "./context/AppContext";
 import { useApp } from "./context/AppContext";
+import { usePushNotifications } from "./hooks/usePushNotifications";
 import { AdminPage } from "./pages/AdminPage";
 import { AuthPage } from "./pages/AuthPage";
 import { ChatPage } from "./pages/ChatPage";
@@ -215,7 +216,26 @@ function AdminGate() {
 }
 
 function AppInner() {
-  const { currentUser, logout } = useApp();
+  const {
+    currentUser,
+    logout,
+    friends,
+    getConversation,
+    incomingFriendRequests,
+  } = useApp();
+
+  // Build conversations for push notification tracking
+  const conversations = (friends || []).map((f) => ({
+    friendId: f.id,
+    msgs: getConversation(f.id),
+  }));
+
+  usePushNotifications({
+    isLoggedIn: !!currentUser,
+    conversations,
+    currentUserId: currentUser?.id ?? null,
+    incomingFriendRequestCount: (incomingFriendRequests || []).length,
+  });
   const didMountRef = useRef(false);
 
   const [page, setPage] = useState<Page>(() => {
