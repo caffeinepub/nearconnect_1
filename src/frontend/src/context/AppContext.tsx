@@ -444,13 +444,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       return;
     }
-    // Set online immediately on mount (handles page reload without re-login)
+    const id = currentUser.id;
+    // Set online immediately on mount — only if internet is available
     getActor()
-      .then((actor) => actor.setOnlineStatus(currentUser.id, true))
+      .then((actor) => actor.setOnlineStatus(id, navigator.onLine))
       .catch(() => {});
-    fetchBackendUsers(currentUser.id).then(() => syncFriendships(currentUser));
+    fetchBackendUsers(id).then(() => syncFriendships(currentUser));
     backendPollRef.current = setInterval(() => {
-      fetchBackendUsers(currentUser.id);
+      fetchBackendUsers(id);
     }, 10000);
     syncRef.current = setInterval(() => {
       syncFriendships(currentUser);
@@ -458,10 +459,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Heartbeat: keep online status alive every 45 seconds
     heartbeatRef.current = setInterval(() => {
       getActor()
-        .then((actor) => actor.setOnlineStatus(currentUser.id, true))
+        .then((actor) => actor.setOnlineStatus(id, navigator.onLine))
         .catch(() => {});
     }, 45000);
+    // React to connectivity changes
+    const handleOnline = () => {
+      getActor()
+        .then((actor) => actor.setOnlineStatus(id, true))
+        .catch(() => {});
+    };
+    const handleOffline = () => {
+      getActor()
+        .then((actor) => actor.setOnlineStatus(id, false))
+        .catch(() => {});
+    };
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
     return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
       if (backendPollRef.current !== null) {
         clearInterval(backendPollRef.current);
         backendPollRef.current = null;
@@ -544,7 +560,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
         setCurrentUser(localUser);
         localStorage.setItem("nc_current_user", JSON.stringify(localUser));
-        actor.setOnlineStatus(localUser.id, true).catch(() => {});
+        actor.setOnlineStatus(localUser.id, navigator.onLine).catch(() => {});
         const updated = upsertSavedAccount({
           id: localUser.id,
           username: localUser.username,
@@ -590,7 +606,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
       setCurrentUser(localUser);
       localStorage.setItem("nc_current_user", JSON.stringify(localUser));
-      actor.setOnlineStatus(localUser.id, true).catch(() => {});
+      actor.setOnlineStatus(localUser.id, navigator.onLine).catch(() => {});
       const updated = upsertSavedAccount({
         id: localUser.id,
         username: localUser.username,
