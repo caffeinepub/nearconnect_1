@@ -56,8 +56,8 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
   const maxMeters = TIER_METERS[currentUser?.radiusTier || "free"] ?? 500;
 
   const isWithinRadius = (f: FriendUser): boolean => {
-    if (f.isBot) return true; // always show VibeBot
-    if (!userLocation || f.lat == null || f.lng == null) return true; // no location data, show all
+    if (f.isBot) return true;
+    if (!userLocation || f.lat == null || f.lng == null) return true;
     const dist = getDistanceMeters(
       userLocation.lat,
       userLocation.lng,
@@ -66,17 +66,21 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
     );
     return dist <= maxMeters;
   };
+
+  // Keep isWithinRadius and maxMeters available for future use / distance display
+  void isWithinRadius;
+  void maxMeters;
+
   const isLight = theme === "light-clean";
   const followingSet = new Set(followingUsernames);
   const [activeTab, setActiveTab] = useState<FriendsTab>("friends");
 
-  // Split: mutual friends (both follow each other) + bot vs nearby strangers
-  // Only show users within selected radius tier
+  // Show all mutual friends + bot, and all nearby people without radius filtering
   const mutualAndBot = friends.filter(
-    (f) => (f.isBot || mutualFriendIds.has(f.id)) && isWithinRadius(f),
+    (f) => f.isBot || mutualFriendIds.has(f.id),
   );
   const nearbyPeople = friends.filter(
-    (f) => !f.isBot && !mutualFriendIds.has(f.id) && isWithinRadius(f),
+    (f) => !f.isBot && !mutualFriendIds.has(f.id),
   );
   const [locationRequested, setLocationRequested] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -438,7 +442,7 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
               </div>
             )}
 
-            {/* Friends list (mutual + bot) */}
+            {/* Friends list - Online / Offline grouped */}
             {mutualAndBot.length === 0 ? (
               <div
                 data-ocid="friends.empty_state"
@@ -459,140 +463,368 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                 </p>
               </div>
             ) : (
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: 10 }}
-              >
-                {mutualAndBot.map((friend, i) => {
-                  const dist =
-                    userLocation && friend.lat && friend.lng
-                      ? getDistanceMeters(
-                          userLocation.lat,
-                          userLocation.lng,
-                          friend.lat,
-                          friend.lng,
-                        )
-                      : null;
-                  return (
-                    <button
-                      type="button"
-                      key={friend.id}
-                      data-ocid={`friends.item.${i + 1}`}
-                      onClick={() => onOpenChat(friend.id)}
-                      className="glass-card"
+              <>
+                {/* Online friends */}
+                {mutualAndBot.filter((f) => f.online).length > 0 && (
+                  <>
+                    <div
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 14,
-                        padding: "14px 16px",
-                        cursor: "pointer",
-                        border: "none",
-                        width: "100%",
-                        textAlign: "left",
-                        transition: "transform 0.15s, box-shadow 0.15s",
-                        position: "relative",
+                        gap: 8,
+                        marginBottom: 8,
                       }}
-                      onMouseEnter={handleMouseEnter}
-                      onMouseLeave={handleMouseLeave}
                     >
-                      <div style={{ position: "relative", flexShrink: 0 }}>
-                        <AvatarCircle
-                          avatar={friend.avatar}
-                          displayName={friend.displayName}
-                          size={48}
-                          isBot={friend.isBot}
-                          colorIndex={i}
-                          online={friend.online}
-                        />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            flexWrap: "wrap",
-                            gap: 4,
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 4,
-                            }}
-                          >
-                            <span
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: "oklch(0.7 0.22 140)",
+                          boxShadow: "0 0 6px oklch(0.7 0.22 140 / 0.8)",
+                          flexShrink: 0,
+                          display: "inline-block",
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "oklch(0.75 0.2 140)",
+                          textTransform: "uppercase",
+                          letterSpacing: 0.8,
+                        }}
+                      >
+                        Online — {mutualAndBot.filter((f) => f.online).length}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 10,
+                        marginBottom: 20,
+                      }}
+                    >
+                      {mutualAndBot
+                        .filter((f) => f.online)
+                        .map((friend, i) => {
+                          const dist =
+                            userLocation && friend.lat && friend.lng
+                              ? getDistanceMeters(
+                                  userLocation.lat,
+                                  userLocation.lng,
+                                  friend.lat,
+                                  friend.lng,
+                                )
+                              : null;
+                          return (
+                            <button
+                              type="button"
+                              key={friend.id}
+                              data-ocid={`friends.item.online.${i + 1}`}
+                              onClick={() => onOpenChat(friend.id)}
+                              className="glass-card"
                               style={{
-                                fontWeight: 600,
-                                fontSize: 15,
-                                color: isLight ? "#111" : "white",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 14,
+                                padding: "14px 16px",
+                                cursor: "pointer",
+                                border: "1px solid oklch(0.7 0.22 140 / 0.2)",
+                                width: "100%",
+                                textAlign: "left",
+                                transition: "transform 0.15s, box-shadow 0.15s",
+                                position: "relative",
                               }}
+                              onMouseEnter={handleMouseEnter}
+                              onMouseLeave={handleMouseLeave}
                             >
-                              {friend.displayName}
-                            </span>
-                            <VipBadge status={friend.vipStatus} />
-                          </div>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 4,
-                            }}
-                          >
-                            {dist !== null && (
-                              <span
-                                style={{
-                                  fontSize: 10,
-                                  color: "oklch(0.75 0.18 160)",
-                                  background: "oklch(0.75 0.18 160 / 0.12)",
-                                  border:
-                                    "1px solid oklch(0.75 0.18 160 / 0.25)",
-                                  borderRadius: 6,
-                                  padding: "1px 6px",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 3,
-                                }}
+                              <div
+                                style={{ position: "relative", flexShrink: 0 }}
                               >
-                                <MapPin size={8} />
-                                {formatDistance(dist)}
-                              </span>
-                            )}
-                            <Badge
-                              variant="outline"
+                                <AvatarCircle
+                                  avatar={friend.avatar}
+                                  displayName={friend.displayName}
+                                  size={48}
+                                  isBot={friend.isBot}
+                                  colorIndex={i}
+                                  online={friend.online}
+                                />
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    flexWrap: "wrap",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontWeight: 600,
+                                        fontSize: 15,
+                                        color: isLight ? "#111" : "white",
+                                      }}
+                                    >
+                                      {friend.displayName}
+                                    </span>
+                                    <VipBadge status={friend.vipStatus} />
+                                  </div>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                    }}
+                                  >
+                                    {dist !== null && (
+                                      <span
+                                        style={{
+                                          fontSize: 10,
+                                          color: "oklch(0.75 0.18 160)",
+                                          background:
+                                            "oklch(0.75 0.18 160 / 0.12)",
+                                          border:
+                                            "1px solid oklch(0.75 0.18 160 / 0.25)",
+                                          borderRadius: 6,
+                                          padding: "1px 6px",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: 3,
+                                        }}
+                                      >
+                                        <MapPin size={8} />
+                                        {formatDistance(dist)}
+                                      </span>
+                                    )}
+                                    <Badge
+                                      variant="outline"
+                                      style={{
+                                        fontSize: 10,
+                                        padding: "1px 8px",
+                                        borderColor:
+                                          "oklch(0.7 0.22 140 / 0.4)",
+                                        color: "oklch(0.75 0.2 140)",
+                                      }}
+                                    >
+                                      Online
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    marginTop: 3,
+                                    fontSize: 13,
+                                    color: isLight
+                                      ? "#666"
+                                      : "rgba(255,255,255,0.4)",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  Tap to chat
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </>
+                )}
+
+                {/* Offline friends */}
+                {mutualAndBot.filter((f) => !f.online).length > 0 && (
+                  <>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          background: "rgba(255,255,255,0.25)",
+                          flexShrink: 0,
+                          display: "inline-block",
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "rgba(255,255,255,0.4)",
+                          textTransform: "uppercase",
+                          letterSpacing: 0.8,
+                        }}
+                      >
+                        Offline — {mutualAndBot.filter((f) => !f.online).length}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 10,
+                        marginBottom: 8,
+                      }}
+                    >
+                      {mutualAndBot
+                        .filter((f) => !f.online)
+                        .map((friend, i) => {
+                          const dist =
+                            userLocation && friend.lat && friend.lng
+                              ? getDistanceMeters(
+                                  userLocation.lat,
+                                  userLocation.lng,
+                                  friend.lat,
+                                  friend.lng,
+                                )
+                              : null;
+                          return (
+                            <button
+                              type="button"
+                              key={friend.id}
+                              data-ocid={`friends.item.offline.${i + 1}`}
+                              onClick={() => onOpenChat(friend.id)}
+                              className="glass-card"
                               style={{
-                                fontSize: 10,
-                                padding: "1px 8px",
-                                borderColor: "rgba(255,255,255,0.15)",
-                                color: friend.online
-                                  ? "oklch(0.75 0.2 140)"
-                                  : "rgba(255,255,255,0.3)",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 14,
+                                padding: "14px 16px",
+                                cursor: "pointer",
+                                border: "1px solid rgba(255,255,255,0.06)",
+                                width: "100%",
+                                textAlign: "left",
+                                transition: "transform 0.15s, box-shadow 0.15s",
+                                position: "relative",
+                                opacity: 0.75,
                               }}
+                              onMouseEnter={handleMouseEnter}
+                              onMouseLeave={handleMouseLeave}
                             >
-                              {friend.online
-                                ? "Online"
-                                : friend.lastSeen || "Offline"}
-                            </Badge>
-                          </div>
-                        </div>
-                        <p
-                          style={{
-                            margin: 0,
-                            marginTop: 3,
-                            fontSize: 13,
-                            color: isLight ? "#666" : "rgba(255,255,255,0.4)",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
-                          Tap to chat
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                              <div
+                                style={{ position: "relative", flexShrink: 0 }}
+                              >
+                                <AvatarCircle
+                                  avatar={friend.avatar}
+                                  displayName={friend.displayName}
+                                  size={48}
+                                  isBot={friend.isBot}
+                                  colorIndex={i}
+                                  online={false}
+                                />
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    flexWrap: "wrap",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontWeight: 600,
+                                        fontSize: 15,
+                                        color: isLight
+                                          ? "#444"
+                                          : "rgba(255,255,255,0.65)",
+                                      }}
+                                    >
+                                      {friend.displayName}
+                                    </span>
+                                    <VipBadge status={friend.vipStatus} />
+                                  </div>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                    }}
+                                  >
+                                    {dist !== null && (
+                                      <span
+                                        style={{
+                                          fontSize: 10,
+                                          color: "oklch(0.75 0.18 160)",
+                                          background:
+                                            "oklch(0.75 0.18 160 / 0.12)",
+                                          border:
+                                            "1px solid oklch(0.75 0.18 160 / 0.25)",
+                                          borderRadius: 6,
+                                          padding: "1px 6px",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: 3,
+                                        }}
+                                      >
+                                        <MapPin size={8} />
+                                        {formatDistance(dist)}
+                                      </span>
+                                    )}
+                                    <Badge
+                                      variant="outline"
+                                      style={{
+                                        fontSize: 10,
+                                        padding: "1px 8px",
+                                        borderColor: "rgba(255,255,255,0.12)",
+                                        color: "rgba(255,255,255,0.3)",
+                                      }}
+                                    >
+                                      {friend.lastSeen || "Offline"}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    marginTop: 3,
+                                    fontSize: 13,
+                                    color: isLight
+                                      ? "#999"
+                                      : "rgba(255,255,255,0.3)",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  Tap to chat
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </>
+                )}
+              </>
             )}
 
             {/* Nearby People section */}
@@ -633,6 +865,29 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                   >
                     {nearbyPeople.length}
                   </span>
+                  {nearbyPeople.filter((p) => p.online).length > 0 && (
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: 11,
+                        color: "oklch(0.75 0.2 140)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: "oklch(0.7 0.22 140)",
+                          boxShadow: "0 0 4px oklch(0.7 0.22 140 / 0.8)",
+                          display: "inline-block",
+                        }}
+                      />
+                      {nearbyPeople.filter((p) => p.online).length} online
+                    </span>
+                  )}
                 </div>
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 8 }}

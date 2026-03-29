@@ -205,7 +205,7 @@ export function PurchaseQRSheet({
                   }}
                 >
                   <img
-                    src="/assets/uploads/img_20260328_231351-019d3591-3e86-74df-9f18-dc0577eadcc1-1.png"
+                    src="/assets/uploads/screenshot_2026-03-28-23-08-16-82_ba41e9a642e6e0e2b03656bfbbffd6e4-019d35c0-77a1-7036-9dc3-68610a2e9eae-1.jpg"
                     alt="Payment QR Code"
                     style={{
                       width: "min(80vw, 280px)",
