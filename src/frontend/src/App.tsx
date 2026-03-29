@@ -216,24 +216,10 @@ function AdminGate() {
 }
 
 function AppInner() {
-  const {
-    currentUser,
-    logout,
-    friends,
-    getConversation,
-    incomingFriendRequests,
-  } = useApp();
-
-  // Build conversations for push notification tracking
-  const conversations = (friends || []).map((f) => ({
-    friendId: f.id,
-    msgs: getConversation(f.id),
-  }));
+  const { currentUser, logout, incomingFriendRequests } = useApp();
 
   usePushNotifications({
     isLoggedIn: !!currentUser,
-    conversations,
-    currentUserId: currentUser?.id ?? null,
     incomingFriendRequestCount: (incomingFriendRequests || []).length,
   });
   const didMountRef = useRef(false);

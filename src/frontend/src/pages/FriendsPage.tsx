@@ -67,20 +67,16 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
     return dist <= maxMeters;
   };
 
-  // Keep isWithinRadius and maxMeters available for future use / distance display
-  void isWithinRadius;
-  void maxMeters;
-
   const isLight = theme === "light-clean";
   const followingSet = new Set(followingUsernames);
   const [activeTab, setActiveTab] = useState<FriendsTab>("friends");
 
-  // Show all mutual friends + bot, and all nearby people without radius filtering
+  // Only show users within the selected radius tier
   const mutualAndBot = friends.filter(
-    (f) => f.isBot || mutualFriendIds.has(f.id),
+    (f) => f.isBot || (mutualFriendIds.has(f.id) && isWithinRadius(f)),
   );
   const nearbyPeople = friends.filter(
-    (f) => !f.isBot && !mutualFriendIds.has(f.id),
+    (f) => !f.isBot && !mutualFriendIds.has(f.id) && isWithinRadius(f),
   );
   const [locationRequested, setLocationRequested] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
