@@ -347,12 +347,6 @@ function AppInner() {
           />
         )}
         {page === "search" && <SearchPage onNavigate={handleNav} />}
-        {page === "chat" && chatFriendId && (
-          <ChatPage
-            friendId={chatFriendId}
-            onBack={() => window.history.back()}
-          />
-        )}
         {page === "settings" && (
           <SettingsPage onNavigate={handleNav} onLogout={handleLogout} />
         )}
@@ -360,6 +354,22 @@ function AppInner() {
           <AdminPage onNavigate={handleNav} />
         )}
       </div>
+      {/* ChatPage rendered OUTSIDE the scrollable wrapper so its own fixed
+          header and input bar are never affected by the parent overflow:auto */}
+      {page === "chat" && chatFriendId && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 10,
+          }}
+        >
+          <ChatPage
+            friendId={chatFriendId}
+            onBack={() => window.history.back()}
+          />
+        </div>
+      )}
     </div>
   );
 }
