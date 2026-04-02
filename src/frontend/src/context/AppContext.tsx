@@ -6,7 +6,11 @@ import {
   useRef,
   useState,
 } from "react";
-import type { PurchaseSettings, backendInterface } from "../backend";
+import type {
+  User as BackendUser,
+  PurchaseSettings,
+  backendInterface,
+} from "../backend";
 import { createActorWithConfig } from "../config";
 
 export type Theme =
@@ -541,7 +545,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ): Promise<boolean> => {
     try {
       const actor = await getActor();
-      const beUser = await actor.verifyCredentials(username, password);
+      const beUserArr = await actor.verifyCredentials(username, password);
+      const beUser = (beUserArr as unknown as BackendUser[])[0] ?? null;
       if (beUser) {
         const localUser: User = {
           id: beUser.id,
