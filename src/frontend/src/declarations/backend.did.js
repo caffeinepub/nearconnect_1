@@ -127,6 +127,8 @@ export const idlService = IDL.Service({
   'deleteConversation' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'deleteMessage' : IDL.Func([IDL.Text, IDL.Text, Time], [], []),
   'deleteUser' : IDL.Func([IDL.Text], [], []),
+  'deleteOwnAccount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
+  'deleteOwnAccount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
   'follow' : IDL.Func([IDL.Text], [IDL.Text], []),
   'getAllUsers' : IDL.Func([], [IDL.Vec(User)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),

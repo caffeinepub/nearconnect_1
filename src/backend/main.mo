@@ -425,10 +425,8 @@ actor {
     };
   };
 
-  public shared ({ caller }) func deleteUser(userId : Text) : async () {
-    if (not Auth.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admins can delete users");
-    };
+  // Admin deletes any user (no ICP identity check, matches admin password auth pattern)
+  public shared func deleteUser(userId : Text) : async () {
     switch (getUserInternal(userId)) {
       case (?user) {
         principalToUserId.remove(user.principal);
@@ -437,6 +435,21 @@ actor {
       case (null) {
         Runtime.trap("User not found");
       };
+    };
+  };
+
+  // User deletes their own account (verified by password hash)
+  public shared func deleteOwnAccount(userId : Text, passwordHash : Text) : async Bool {
+    switch (getUserInternal(userId)) {
+      case (?user) {
+        if (user.passwordHash != passwordHash) {
+          return false;
+        };
+        principalToUserId.remove(user.principal);
+        users.remove(userId);
+        true;
+      };
+      case (null) { false };
     };
   };
 

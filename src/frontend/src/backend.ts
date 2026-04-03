@@ -208,6 +208,7 @@ export interface backendInterface {
     deleteConversation(userId: string, otherUserId: string): Promise<void>;
     deleteMessage(userId: string, otherUserId: string, timestamp: Time): Promise<void>;
     deleteUser(userId: string): Promise<void>;
+    deleteOwnAccount(userId: string, passwordHash: string): Promise<boolean>;
     follow(username: string): Promise<string>;
     getAllUsers(): Promise<Array<User>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
@@ -346,6 +347,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deleteUser(arg0);
+            return result;
+        }
+    }
+    async deleteOwnAccount(arg0: string, arg1: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteOwnAccount(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteOwnAccount(arg0, arg1);
             return result;
         }
     }

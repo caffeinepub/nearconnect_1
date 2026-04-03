@@ -109,6 +109,7 @@ export interface _SERVICE {
   'deleteConversation' : ActorMethod<[string, string], undefined>,
   'deleteMessage' : ActorMethod<[string, string, Time], undefined>,
   'deleteUser' : ActorMethod<[string], undefined>,
+  'deleteOwnAccount' : ActorMethod<[string, string], boolean>,
   'follow' : ActorMethod<[string], string>,
   'getAllUsers' : ActorMethod<[], Array<User>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,

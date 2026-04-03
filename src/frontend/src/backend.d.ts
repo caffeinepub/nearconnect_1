@@ -125,6 +125,7 @@ export interface backendInterface {
     deleteConversation(userId: string, otherUserId: string): Promise<void>;
     deleteMessage(userId: string, otherUserId: string, timestamp: Time): Promise<void>;
     deleteUser(userId: string): Promise<void>;
+    deleteOwnAccount(userId: string, passwordHash: string): Promise<boolean>;
     follow(username: string): Promise<string>;
     getAllUsers(): Promise<Array<User>>;
     getCallerUserProfile(): Promise<UserProfile | null>;

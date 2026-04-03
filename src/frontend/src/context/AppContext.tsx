@@ -19,7 +19,7 @@ export type Theme =
   | "light-clean"
   | "neon-pulse";
 
-export type RadiusTier = "free" | "basic" | "standard" | "premium";
+export type RadiusTier = "free" | "basic" | "standard" | "premium" | "banned";
 
 export interface SavedAccount {
   id: string;
@@ -89,6 +89,7 @@ const RADIUS_LABELS: Record<RadiusTier, string> = {
   basic: "1km",
   standard: "5km",
   premium: "10km",
+  banned: "Banned",
 };
 
 const BOT_USER: FriendUser = {
@@ -112,6 +113,8 @@ function bigintToRadiusTier(n: bigint): RadiusTier {
       return "standard";
     case 3n:
       return "premium";
+    case 999n:
+      return "banned";
     default:
       return "free";
   }
@@ -214,6 +217,7 @@ interface AppContextValue {
   purchaseRadius: (tier: RadiusTier) => void;
   updateSettings: (settings: Partial<User>) => void;
   deleteUser: (userId: string) => void;
+  deleteOwnAccount: (userId: string, passwordHash: string) => Promise<boolean>;
   userLocation: { lat: number; lng: number } | null;
   allRealUsers: User[];
   refreshFriends: () => Promise<void>;
@@ -545,9 +549,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ): Promise<boolean> => {
     try {
       const actor = await getActor();
-      const beUserArr = await actor.verifyCredentials(username, password);
-      const beUser = (beUserArr as unknown as BackendUser[])[0] ?? null;
+      const beUser = await actor.verifyCredentials(username, password);
       if (beUser) {
+        // Block banned users from logging in
+        if (beUser.radiusTier === 999n) {
+          return false;
+        }
         const localUser: User = {
           id: beUser.id,
           username: beUser.username,
@@ -835,6 +842,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteOwnAccount = async (
+    userId: string,
+    passwordHash: string,
+  ): Promise<boolean> => {
+    try {
+      const actor = await getActor();
+      const success = await actor.deleteOwnAccount(userId, passwordHash);
+      if (success) {
+        setUsers((prev) => prev.filter((u) => u.id !== userId));
+        // Remove from saved accounts
+        const updated = savedAccounts.filter((a) => a.id !== userId);
+        setSavedAccounts(updated);
+        localStorage.setItem("nc_saved_accounts", JSON.stringify(updated));
+        logout();
+      }
+      return success;
+    } catch {
+      return false;
+    }
+  };
+
   const purchaseRadius = (tier: RadiusTier) => {
     if (!currentUser) return;
     const tierOrder: Record<string, number> = {
@@ -871,6 +899,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     basic: 1n,
     standard: 2n,
     premium: 3n,
+    banned: 999n,
   };
 
   const grantPurchaseToUser = async (userId: string, tier: RadiusTier) => {
@@ -1035,6 +1064,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         purchaseRadius,
         updateSettings,
         deleteUser,
+        deleteOwnAccount,
         userLocation,
         refreshFriends,
         purchaseSettings,

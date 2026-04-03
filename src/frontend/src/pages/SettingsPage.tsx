@@ -12,6 +12,7 @@ import {
   Moon,
   Palette,
   Sun,
+  Trash2,
   TrendingUp,
   Users,
   Zap,
@@ -41,6 +42,7 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
     purchaseRadius,
     purchaseSettings,
     updateAvatar,
+    deleteOwnAccount,
   } = useApp();
   const isLight = theme === "light-clean";
   const [avatarInput, setAvatarInput] = useState(currentUser?.avatar || "");
@@ -48,6 +50,9 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
   const [purchaseSheetOpen, setPurchaseSheetOpen] = useState(false);
   const [purchaseSheetTier, setPurchaseSheetTier] = useState("");
   const [purchaseSheetPrice, setPurchaseSheetPrice] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   if (!currentUser) return null;
 
@@ -56,6 +61,7 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
     basic: 1,
     standard: 2,
     premium: 3,
+    banned: -1,
   };
   const maxGrantedTier = currentUser.maxGrantedTier || currentUser.radiusTier;
   const maxGrantedLevel = tierOrder[maxGrantedTier] ?? 0;
@@ -674,6 +680,117 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
             </a>
           </div>
         </div>
+
+        {/* Delete Account */}
+        {!deleteConfirm ? (
+          <Button
+            data-ocid="settings.delete-account.button"
+            onClick={() => setDeleteConfirm(true)}
+            style={{
+              width: "100%",
+              borderRadius: 14,
+              background: "rgba(180,0,0,0.10)",
+              border: "1px solid rgba(200,0,0,0.22)",
+              color: "oklch(0.62 0.22 20)",
+              height: 44,
+              fontSize: 13,
+              fontWeight: 600,
+              marginBottom: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+          >
+            <Trash2 size={15} />
+            Delete Account
+          </Button>
+        ) : (
+          <div
+            style={{
+              background: "rgba(200,0,0,0.08)",
+              border: "1px solid rgba(200,0,0,0.22)",
+              borderRadius: 14,
+              padding: "14px 16px",
+              marginBottom: 10,
+            }}
+          >
+            <p
+              style={{
+                fontSize: 13,
+                color: "oklch(0.7 0.18 20)",
+                marginBottom: 10,
+                fontWeight: 600,
+              }}
+            >
+              ⚠️ This permanently deletes your account and all data.
+            </p>
+            <input
+              type="password"
+              placeholder="Enter your password to confirm"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid rgba(200,0,0,0.3)",
+                background: "rgba(0,0,0,0.3)",
+                color: "inherit",
+                fontSize: 13,
+                marginBottom: 10,
+                boxSizing: "border-box" as const,
+              }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button
+                onClick={() => {
+                  setDeleteConfirm(false);
+                  setDeletePassword("");
+                }}
+                style={{
+                  flex: 1,
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "inherit",
+                  height: 38,
+                  fontSize: 13,
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={deleteLoading || !deletePassword}
+                onClick={async () => {
+                  if (!currentUser || !deletePassword) return;
+                  setDeleteLoading(true);
+                  const ok = await deleteOwnAccount(
+                    currentUser.id,
+                    deletePassword,
+                  );
+                  setDeleteLoading(false);
+                  if (!ok) {
+                    toast.error("Incorrect password");
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  borderRadius: 10,
+                  background: "rgba(200,0,0,0.7)",
+                  border: "none",
+                  color: "#fff",
+                  height: 38,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  opacity: deleteLoading || !deletePassword ? 0.5 : 1,
+                }}
+              >
+                {deleteLoading ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Logout */}
         <Button

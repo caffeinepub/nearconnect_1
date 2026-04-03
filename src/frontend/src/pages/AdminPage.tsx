@@ -50,6 +50,7 @@ const TIER_LABELS: Record<RadiusTier, string> = {
   basic: "Basic (1km)",
   standard: "Standard (5km)",
   premium: "Premium (10km)",
+  banned: "Banned",
 };
 
 const TIER_BADGE_COLORS: Record<
@@ -100,6 +101,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
     savePurchaseSettings,
     grantPurchaseToUser,
     setVipStatus,
+    refreshFriends,
   } = useApp();
 
   const isLight = theme === "light-clean";
@@ -216,10 +218,11 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
     setBanningUsers((prev) => ({ ...prev, [userId]: true }));
     try {
       const actor = await createActorWithConfig();
-      await actor.updateUserRadiusTier(userId, isBanned ? 0n : -1n);
+      await actor.updateUserRadiusTier(userId, isBanned ? 0n : 999n);
       if (!isBanned) {
         await actor.setOnlineStatus(userId, false);
       }
+      await refreshFriends();
     } catch {
       /* silent */
     } finally {
@@ -271,7 +274,7 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
     (u) => u.vipStatus && u.vipStatus !== "none",
   ).length;
   const bannedCount = displayUsers.filter(
-    (u) => (u.radiusTier as string) === "banned",
+    (u) => u.radiusTier === "banned",
   ).length;
   const recentUsers = [...displayUsers]
     .filter((u) => u.createdAt)
@@ -824,9 +827,9 @@ export function AdminPage({ onNavigate }: AdminPageProps) {
                 filteredUsers.map((user, i) => {
                   const isMe = user.id === currentUser?.id;
                   const isAdminUser = user.isAdmin === true;
-                  const isBanned = (user.radiusTier as string) === "banned";
+                  const isBanned = user.radiusTier === "banned";
                   const isPendingDelete = confirmDelete === user.id;
-                  const currentTier = (user.radiusTier as string) || "free";
+                  const currentTier = user.radiusTier || "free";
                   const tierKey = (isBanned ? "banned" : currentTier) as
                     | RadiusTier
                     | "banned";
