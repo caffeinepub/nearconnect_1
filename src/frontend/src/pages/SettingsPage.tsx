@@ -24,6 +24,7 @@ import { BottomNav } from "../components/BottomNav";
 import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
 import { PurchaseQRSheet } from "../components/PurchaseQRSheet";
+import { VipBadge } from "../components/VipBadge";
 import { RADIUS_LABELS, type RadiusTier, useApp } from "../context/AppContext";
 
 interface SettingsPageProps {
@@ -180,16 +181,19 @@ export function SettingsPage({ onNavigate, onLogout }: SettingsPageProps) {
               size={52}
             />
             <div>
-              <p
-                style={{
-                  margin: 0,
-                  fontWeight: 600,
-                  fontSize: 16,
-                  color: isLight ? "#111" : "white",
-                }}
-              >
-                {currentUser.displayName}
-              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontWeight: 600,
+                    fontSize: 16,
+                    color: isLight ? "#111" : "white",
+                  }}
+                >
+                  {currentUser.displayName}
+                </p>
+                <VipBadge status={currentUser.vipStatus} />
+              </div>
               <p
                 style={{
                   margin: 0,
