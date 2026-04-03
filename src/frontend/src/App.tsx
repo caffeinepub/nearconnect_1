@@ -12,6 +12,109 @@ import { FriendsPage } from "./pages/FriendsPage";
 import { SearchPage } from "./pages/SearchPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
+/* ── Splash Screen ─────────────────────────────────────────────── */
+function SplashScreen() {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "oklch(0.08 0.02 260)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 0,
+      }}
+    >
+      {/* Ambient glow */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: "30%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 320,
+          height: 320,
+          background:
+            "radial-gradient(circle, oklch(0.55 0.28 280 / 0.25) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Logo */}
+      <img
+        src="/assets/generated/vibezone-logo-transparent.dim_256x256.png"
+        alt="VibeZone"
+        style={{
+          width: 88,
+          height: 88,
+          marginBottom: 20,
+          filter: "drop-shadow(0 0 24px oklch(0.65 0.28 280 / 0.6))",
+          animation: "splash-logo-pulse 2s ease-in-out infinite",
+        }}
+      />
+
+      {/* App name */}
+      <h1
+        style={{
+          fontFamily: "'Bricolage Grotesque', sans-serif",
+          fontSize: 34,
+          fontWeight: 800,
+          color: "white",
+          margin: 0,
+          marginBottom: 6,
+          letterSpacing: -1,
+          background:
+            "linear-gradient(135deg, white 30%, oklch(0.75 0.22 280))",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+        }}
+      >
+        VibeZone
+      </h1>
+
+      <p
+        style={{
+          color: "rgba(255,255,255,0.35)",
+          fontSize: 13,
+          margin: 0,
+          marginBottom: 48,
+          letterSpacing: 0.3,
+        }}
+      >
+        Discover your vibe. Find your people.
+      </p>
+
+      {/* Spinner */}
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: "50%",
+          border: "3px solid rgba(255,255,255,0.08)",
+          borderTopColor: "oklch(0.65 0.25 280)",
+          borderRightColor: "oklch(0.65 0.22 200)",
+          animation: "splash-spin 0.85s linear infinite",
+        }}
+      />
+
+      <style>{`
+        @keyframes splash-spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes splash-logo-pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.06); opacity: 0.85; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 const ADMIN_PASSWORD = "Qwerty12x";
 
 type Page =
@@ -377,6 +480,18 @@ function AppInner() {
 export default function App() {
   const [adminPath] = useState(() => isAdminPath());
   const [adminSession] = useState(() => hasAdminSession());
+  const [appReady, setAppReady] = useState(false);
+
+  useEffect(() => {
+    const minDelay = new Promise<void>((res) => setTimeout(res, 1400));
+    const docReady = new Promise<void>((res) => {
+      if (document.readyState === "complete") res();
+      else window.addEventListener("load", () => res(), { once: true });
+    });
+    Promise.all([minDelay, docReady]).then(() => setAppReady(true));
+  }, []);
+
+  if (!appReady) return <SplashScreen />;
 
   if (adminPath && !adminSession) {
     return <AdminGate />;
