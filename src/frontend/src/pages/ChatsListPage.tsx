@@ -4,6 +4,8 @@ import { AvatarCircle } from "../components/AvatarCircle";
 import { BottomNav } from "../components/BottomNav";
 import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
+import type { ProfileUser } from "../components/UserProfileSheet";
+import { UserProfileSheet } from "../components/UserProfileSheet";
 import { VipBadge } from "../components/VipBadge";
 import { createActorWithConfig } from "../config";
 import { useApp } from "../context/AppContext";
@@ -40,6 +42,9 @@ export function ChatsListPage({ onNavigate, onOpenChat }: ChatsListPageProps) {
   const isLight = theme === "light-clean";
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<ProfileUser | null>(
+    null,
+  );
 
   // All friends+bot that have at least one message
   const chatsWithMessages = friends
@@ -190,15 +195,41 @@ export function ChatsListPage({ onNavigate, onOpenChat }: ChatsListPageProps) {
                       paddingRight: 44,
                     }}
                   >
-                    {/* Avatar */}
-                    <AvatarCircle
-                      avatar={friend.avatar}
-                      displayName={friend.displayName}
-                      size={50}
-                      isBot={friend.isBot}
-                      colorIndex={i}
-                      online={friend.online}
-                    />
+                    {/* Avatar -- tappable to view profile */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!friend.isBot) {
+                          setSelectedProfile({
+                            id: friend.id,
+                            username: friend.username,
+                            displayName: friend.displayName,
+                            avatar: friend.avatar,
+                            vipStatus: friend.vipStatus,
+                            online: friend.online,
+                            lastSeen: friend.lastSeen,
+                            radiusTier: "free",
+                          });
+                        }
+                      }}
+                      style={{
+                        cursor: friend.isBot ? "default" : "pointer",
+                        flexShrink: 0,
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                      }}
+                    >
+                      <AvatarCircle
+                        avatar={friend.avatar}
+                        displayName={friend.displayName}
+                        size={50}
+                        isBot={friend.isBot}
+                        colorIndex={i}
+                        online={friend.online}
+                      />
+                    </button>
                     {/* Content */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
@@ -423,6 +454,18 @@ export function ChatsListPage({ onNavigate, onOpenChat }: ChatsListPageProps) {
         onNavigate={onNavigate}
         friendRequestCount={incomingFriendRequests.length}
       />
+
+      {selectedProfile && (
+        <UserProfileSheet
+          user={selectedProfile}
+          isOwnProfile={false}
+          onClose={() => setSelectedProfile(null)}
+          onChat={() => {
+            onOpenChat(selectedProfile.id);
+            setSelectedProfile(null);
+          }}
+        />
+      )}
     </div>
   );
 }

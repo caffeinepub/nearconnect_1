@@ -13,6 +13,8 @@ import { AvatarCircle } from "../components/AvatarCircle";
 import { BottomNav } from "../components/BottomNav";
 import { DevFooter } from "../components/DevFooter";
 import { LiquidFluxBg } from "../components/LiquidFluxBg";
+import type { ProfileUser } from "../components/UserProfileSheet";
+import { UserProfileSheet } from "../components/UserProfileSheet";
 import { VipBadge } from "../components/VipBadge";
 import {
   type FriendUser,
@@ -82,6 +84,9 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
   const [rejectingIds, setRejectingIds] = useState<Set<string>>(new Set());
+  const [selectedProfile, setSelectedProfile] = useState<ProfileUser | null>(
+    null,
+  );
 
   // Find full user objects for incoming requests
   const incomingUsers = incomingFriendRequests
@@ -154,6 +159,24 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
   };
   const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.style.transform = "scale(1)";
+  };
+
+  const openProfile = (friend: FriendUser, distance?: number | null) => {
+    const fullUser = allRealUsers.find((u) => u.id === friend.id);
+    setSelectedProfile({
+      id: friend.id,
+      username: friend.username,
+      displayName: friend.displayName,
+      avatar: friend.avatar,
+      vipStatus: friend.vipStatus,
+      bio: (fullUser as any)?.bio,
+      userStatus: (fullUser as any)?.userStatus,
+      radiusTier: fullUser ? (fullUser as any).radiusTier : "free",
+      online: friend.online,
+      lastSeen: friend.lastSeen,
+      createdAt: fullUser?.createdAt,
+      distance: distance ?? undefined,
+    });
   };
 
   return (
@@ -536,8 +559,20 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                               onMouseEnter={handleMouseEnter}
                               onMouseLeave={handleMouseLeave}
                             >
-                              <div
-                                style={{ position: "relative", flexShrink: 0 }}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openProfile(friend, dist);
+                                }}
+                                style={{
+                                  position: "relative",
+                                  flexShrink: 0,
+                                  cursor: "pointer",
+                                  background: "none",
+                                  border: "none",
+                                  padding: 0,
+                                }}
                               >
                                 <AvatarCircle
                                   avatar={friend.avatar}
@@ -547,7 +582,7 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                                   colorIndex={i}
                                   online={friend.online}
                                 />
-                              </div>
+                              </button>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div
                                   style={{
@@ -716,8 +751,20 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                               onMouseEnter={handleMouseEnter}
                               onMouseLeave={handleMouseLeave}
                             >
-                              <div
-                                style={{ position: "relative", flexShrink: 0 }}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openProfile(friend, dist);
+                                }}
+                                style={{
+                                  position: "relative",
+                                  flexShrink: 0,
+                                  cursor: "pointer",
+                                  background: "none",
+                                  border: "none",
+                                  padding: 0,
+                                }}
                               >
                                 <AvatarCircle
                                   avatar={friend.avatar}
@@ -727,7 +774,7 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                                   colorIndex={i}
                                   online={false}
                                 />
-                              </div>
+                              </button>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div
                                   style={{
@@ -903,13 +950,38 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
                           border: "1px solid rgba(255,255,255,0.08)",
                         }}
                       >
-                        <AvatarCircle
-                          avatar={person.avatar}
-                          displayName={person.displayName}
-                          size={42}
-                          colorIndex={i}
-                          online={person.online}
-                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const dist2 =
+                              userLocation &&
+                              person.lat !== undefined &&
+                              person.lng !== undefined
+                                ? getDistanceMeters(
+                                    userLocation.lat,
+                                    userLocation.lng,
+                                    person.lat,
+                                    person.lng,
+                                  )
+                                : undefined;
+                            openProfile(person, dist2);
+                          }}
+                          style={{
+                            cursor: "pointer",
+                            flexShrink: 0,
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                          }}
+                        >
+                          <AvatarCircle
+                            avatar={person.avatar}
+                            displayName={person.displayName}
+                            size={42}
+                            colorIndex={i}
+                            online={person.online}
+                          />
+                        </button>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div
                             style={{
@@ -1206,6 +1278,29 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
       <div style={{ position: "relative", zIndex: 1, paddingBottom: 80 }}>
         <DevFooter />
       </div>
+
+      {selectedProfile && (
+        <UserProfileSheet
+          user={selectedProfile}
+          isOwnProfile={false}
+          onClose={() => setSelectedProfile(null)}
+          onChat={() => {
+            onOpenChat(selectedProfile.id);
+            setSelectedProfile(null);
+          }}
+          onAddFriend={
+            !mutualFriendIds.has(selectedProfile.id) &&
+            !followingSet.has(selectedProfile.id)
+              ? () => {
+                  sendFriendRequest(selectedProfile.id);
+                  setSelectedProfile(null);
+                }
+              : undefined
+          }
+          isFriendPending={followingSet.has(selectedProfile.id)}
+          isMutualFriend={mutualFriendIds.has(selectedProfile.id)}
+        />
+      )}
       <BottomNav
         active="friends"
         onNavigate={onNavigate}

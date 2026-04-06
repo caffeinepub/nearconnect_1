@@ -47,6 +47,9 @@ export interface User {
   createdAt?: number;
   avatar?: string;
   vipStatus?: string;
+  bio?: string;
+  userStatus?: string;
+  recoveryDate?: string;
 }
 
 export interface FriendUser {
@@ -61,6 +64,8 @@ export interface FriendUser {
   lng?: number;
   avatar?: string;
   vipStatus?: string;
+  bio?: string;
+  userStatus?: string;
 }
 
 export interface Message {
@@ -883,6 +888,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const updated = { ...currentUser, ...settings };
     setCurrentUser(updated);
     localStorage.setItem("nc_current_user", JSON.stringify(updated));
+    // Only sync supported backend fields; bio/userStatus/recoveryDate are localStorage-only
     getActor()
       .then((actor) =>
         actor.updateSettings(currentUser.id, {

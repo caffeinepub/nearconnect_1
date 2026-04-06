@@ -57,7 +57,7 @@ export function BottomNav({
       badge: totalUnread,
     },
     { key: "search" as NavPage, icon: Search, label: "Search", badge: 0 },
-    { key: "settings" as NavPage, icon: Settings, label: "Settings", badge: 0 },
+    { key: "settings" as NavPage, icon: Settings, label: "Profile", badge: 0 },
     ...(isAdmin
       ? [{ key: "admin" as NavPage, icon: Shield, label: "Admin", badge: 0 }]
       : []),
