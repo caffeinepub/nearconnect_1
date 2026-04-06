@@ -273,6 +273,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const backendPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
 
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
@@ -319,7 +320,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const actor = await getActor();
       const allBE = await actor.getAllUsers();
       const mapped: FriendUser[] = allBE
-        .filter((u) => u.id !== userId && u.settings?.showInRadius !== false)
+        .filter(
+          (u) =>
+            u.id !== userId &&
+            u.settings?.showInRadius !== false &&
+            u.location != null &&
+            u.location.lat != null &&
+            u.location.lng != null,
+        )
         .map((u) => ({
           id: u.id,
           username: u.username,
@@ -469,10 +477,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     syncRef.current = setInterval(() => {
       syncFriendships(currentUser);
     }, 30000);
-    // Heartbeat: keep online status alive every 45 seconds
+    // Reset activity ref on mount so user is immediately online
+    lastActivityRef.current = Date.now();
+    // Heartbeat: keep online status alive every 45 seconds, idle after 10 min
+    const handleActivity = () => {
+      lastActivityRef.current = Date.now();
+    };
+    window.addEventListener("mousemove", handleActivity);
+    window.addEventListener("click", handleActivity);
+    window.addEventListener("touchstart", handleActivity);
+    window.addEventListener("keydown", handleActivity);
     heartbeatRef.current = setInterval(() => {
+      const isIdle = Date.now() - lastActivityRef.current > 10 * 60 * 1000;
       getActor()
-        .then((actor) => actor.setOnlineStatus(id, navigator.onLine))
+        .then((actor) =>
+          actor.setOnlineStatus(id, isIdle ? false : navigator.onLine),
+        )
         .catch(() => {});
     }, 45000);
     // React to connectivity changes
@@ -489,6 +509,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     return () => {
+      window.removeEventListener("mousemove", handleActivity);
+      window.removeEventListener("click", handleActivity);
+      window.removeEventListener("touchstart", handleActivity);
+      window.removeEventListener("keydown", handleActivity);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       if (backendPollRef.current !== null) {

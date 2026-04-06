@@ -1018,6 +1018,39 @@ export function AuthPage({ onAuth }: AuthPageProps) {
           )}
         </div>
 
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: 16,
+            fontSize: 12,
+            color: "rgba(255,255,255,0.35)",
+            lineHeight: 1.7,
+          }}
+        >
+          <a
+            href="https://notes.realme.com/s/r5rVmrj2WqBQ_2"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "rgba(255,255,255,0.55)",
+              textDecoration: "underline",
+            }}
+          >
+            Privacy Policy
+          </a>
+          {" · "}
+          <a
+            href="https://notes.realme.com/s/xhfW199sVkMS_2"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "rgba(255,255,255,0.55)",
+              textDecoration: "underline",
+            }}
+          >
+            Terms & Conditions
+          </a>
+        </div>
         <p
           style={{
             textAlign: "center",

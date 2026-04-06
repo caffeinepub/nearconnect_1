@@ -1,41 +1,28 @@
 # VibeZone
 
 ## Current State
-- SettingsPage has avatar picker, toggles (showOnlineStatus, showInRadius, notifications), theme selector, radius tier selector, contact developer links, delete account, sign out
-- Missing from Settings: bio field, Online/Busy/Away status selector, recovery date
-- Bottom nav has "Settings" tab
-- No dedicated Profile tab or page for viewing own/others' profiles
-- FriendsPage has profile sheet (tap avatar) but limited fields — no bio/status
-- User interface in AppContext missing bio, status, recoveryDate fields
-- Backend has getUserById() available
+VibeZone is a location-based social app with chat, friends, nearby people, push notifications, and admin portal. Chat screen uses a floating compose button to open the input bar. No privacy policy or terms links exist. Online status is based only on internet connectivity. Users with location disabled are still shown in other people's friend/nearby lists.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Bio field (max 40 chars) in Settings — persisted locally and synced via updateSettings
-- Online/Busy/Away status selector in Settings
-- Recovery date field in Settings (set/change recovery date for password reset)
-- A full Profile page (replaces Settings tab in bottom nav) showing own profile with all info
-- Ability to view another user's profile from Friends list, Nearby People, Chat header, and Requests — as a full slide-up sheet or page
-- Profile page includes: avatar, display name, VIP badge, username, bio, status dot, tier, member since, and edit sections
+- Privacy Policy link (https://notes.realme.com/s/r5rVmrj2WqBQ_2) in login/auth screen and in Settings/Profile
+- Terms & Conditions link (https://notes.realme.com/s/xhfW199sVkMS_2) in login/auth screen and in Settings/Profile
+- Inactivity-based offline: if a user hasn't opened the app in 10+ minutes, mark them offline in backend; their status shows as Offline to others
+- Location-based visibility: users who have location disabled (no lat/lng stored, or location permission denied) are hidden from all other users' Friends and Nearby People lists
 
 ### Modify
-- Bottom nav: rename "Settings" tab → "Profile" (same hash route stays as "settings" for compatibility)
-- SettingsPage: add bio textarea, status selector (Online/Busy/Away selector as 3 pill buttons), and recovery date input at the top of the settings sections
-- AppContext User interface: add bio?: string, userStatus?: string, recoveryDate?: string
-- FriendProfileSheet: show bio, status, tier from FriendUser data
-- FriendsPage, ChatPage, ChatsListPage: tapping avatar/name opens the full profile sheet with bio, status, VIP badge, distance, block/chat/add buttons
-- updateSettings call: also persist bio, userStatus, recoveryDate to localStorage and sync
+- ChatPage: auto-open the input bar (set inputOpen=true by default) so keyboard opens immediately when chat screen loads
+- AppContext fetchBackendUsers: filter out users who have no location data (lat/lng undefined/null) from the backendUsers list shown to others
+- AppContext heartbeat: add idle detection — if the user's last active timestamp is > 10 min ago, set them offline; update lastActive on user interaction
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Update User and FriendUser interfaces in AppContext to include bio, userStatus, recoveryDate
-2. Update updateSettings in AppContext to persist and sync bio/userStatus/recoveryDate (stored in localStorage as part of user object)
-3. Add bio field, status selector, recovery date input to SettingsPage
-4. Create ProfilePage component showing own full profile (avatar, name, badge, bio, status, tier, member since) plus quick-links to edit avatar, change password, set recovery date
-5. Rename "Settings" label in BottomNav to "Profile"
-6. Create UserProfileSheet component for viewing any user's profile (own or others) — shows full info, with Chat/Add Friend/Block buttons for others, Edit button for own
-7. Wire UserProfileSheet into FriendsPage (tap avatar), ChatPage (tap header avatar), ChatsListPage (tap avatar)
-8. Validate and deploy
+1. ChatPage.tsx: Change `useState(false)` for inputOpen to `useState(true)` — keyboard opens immediately on mount
+2. AppContext.tsx: 
+   - Add idle detection: track last user activity with mousemove/click/touchstart events; if idle > 10 min, call setOnlineStatus(false)
+   - In fetchBackendUsers filter: also exclude users with no location data (no lat/lng)
+3. AuthPage.tsx: Add Privacy Policy and Terms & Conditions links at the bottom of the auth form
+4. SettingsPage.tsx: Add Privacy Policy and Terms & Conditions links in the settings page
