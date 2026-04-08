@@ -318,6 +318,168 @@ function AdminGate() {
   );
 }
 
+/* ── Exit Confirmation Dialog ──────────────────────────────────── */
+function ExitDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const handleBackdropKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape") onCancel();
+  };
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onCancel();
+  };
+  const pressBtnDown = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.transform = "scale(0.96)";
+  };
+  const pressBtnUp = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.style.transform = "scale(1)";
+  };
+
+  return (
+    <>
+      {/* Full-screen backdrop */}
+      <div
+        onClick={handleBackdropClick}
+        onKeyDown={handleBackdropKey}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 9000,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "24px",
+          background: "rgba(0,0,0,0.55)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          animation: "exit-dialog-backdrop-in 0.22s ease-out both",
+        }}
+      >
+        {/* Glass card */}
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 320,
+            background:
+              "linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%)",
+            backdropFilter: "blur(32px)",
+            WebkitBackdropFilter: "blur(32px)",
+            border: "1px solid rgba(255,255,255,0.18)",
+            borderRadius: 24,
+            padding: "28px 24px 22px",
+            boxShadow:
+              "0 24px 64px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.2)",
+            animation:
+              "exit-dialog-card-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both",
+            textAlign: "center",
+          }}
+        >
+          {/* Icon */}
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 18,
+              background:
+                "linear-gradient(135deg, oklch(0.45 0.22 280 / 0.6), oklch(0.55 0.28 310 / 0.5))",
+              border: "1px solid rgba(255,255,255,0.18)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+              fontSize: 26,
+            }}
+          >
+            👋
+          </div>
+
+          {/* Heading */}
+          <h2
+            id="exit-dialog-title"
+            style={{
+              fontFamily: "'Bricolage Grotesque', sans-serif",
+              fontSize: 18,
+              fontWeight: 700,
+              color: "white",
+              margin: "0 0 8px",
+              lineHeight: 1.3,
+            }}
+          >
+            Exit VibeZone?
+          </h2>
+          <p
+            style={{
+              color: "rgba(255,255,255,0.5)",
+              fontSize: 13.5,
+              margin: "0 0 24px",
+              lineHeight: 1.5,
+            }}
+          >
+            Are you sure you want to exit VibeZone?
+          </p>
+
+          {/* Buttons */}
+          <div style={{ display: "flex", gap: 10 }}>
+            {/* No — stay */}
+            <button
+              type="button"
+              data-ocid="exit_dialog.cancel"
+              onClick={onCancel}
+              onMouseDown={pressBtnDown}
+              onMouseUp={pressBtnUp}
+              style={{
+                flex: 1,
+                padding: "12px 0",
+                borderRadius: 14,
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.14)",
+                color: "rgba(255,255,255,0.85)",
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "background 0.18s, transform 0.14s",
+                fontFamily: "'Figtree', sans-serif",
+              }}
+            >
+              No
+            </button>
+
+            {/* Yes — exit */}
+            <button
+              type="button"
+              data-ocid="exit_dialog.confirm"
+              onClick={onConfirm}
+              onMouseDown={pressBtnDown}
+              onMouseUp={pressBtnUp}
+              style={{
+                flex: 1,
+                padding: "12px 0",
+                borderRadius: 14,
+                background:
+                  "linear-gradient(135deg, oklch(0.45 0.25 280), oklch(0.6 0.28 310))",
+                border: "1px solid rgba(255,255,255,0.2)",
+                color: "white",
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "opacity 0.18s, transform 0.14s",
+                boxShadow: "0 4px 16px oklch(0.5 0.25 280 / 0.4)",
+                fontFamily: "'Figtree', sans-serif",
+              }}
+            >
+              Yes, Exit
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function AppInner() {
   const { currentUser, logout, incomingFriendRequests } = useApp();
 
@@ -337,6 +499,7 @@ function AppInner() {
     const { chatId } = parseHash();
     return chatId;
   });
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   // On mount, fix hash if logged-in user is on auth route
   useEffect(() => {
@@ -356,10 +519,12 @@ function AppInner() {
   useEffect(() => {
     const handlePopState = () => {
       const { page: p, chatId } = parseHash();
-      // If logged in and back button leads to auth, stay on friends
+      // If logged in and back button would lead to auth, intercept:
+      // if already on friends (home), show exit dialog instead of logging out
       if (currentUser && p === "auth") {
         window.history.replaceState({}, "", "#friends");
         setPage("friends");
+        setShowExitDialog(true);
         return;
       }
       if (!currentUser && p !== "auth") {
@@ -405,6 +570,18 @@ function AppInner() {
     setPage(dest);
   };
 
+  const handleExitConfirm = () => {
+    setShowExitDialog(false);
+    // Attempt to close the tab; fallback navigates to blank page
+    try {
+      window.close();
+    } catch {
+      window.location.href = "about:blank";
+    }
+  };
+
+  const handleExitCancel = () => setShowExitDialog(false);
+
   if (page === "auth") return <AuthPage onAuth={handleAuth} />;
 
   // Fixed-position container prevents dvh-induced layout shifts on mobile
@@ -425,6 +602,10 @@ function AppInner() {
       }}
     >
       <BroadcastPopup />
+      {/* Exit confirmation dialog */}
+      {showExitDialog && (
+        <ExitDialog onConfirm={handleExitConfirm} onCancel={handleExitCancel} />
+      )}
       {/* Scrollable page content area — leaves room for fixed bottom nav */}
       <div
         style={{
