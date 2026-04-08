@@ -26,31 +26,7 @@ export interface PurchaseSettings {
   'enabled' : boolean,
   'standardPrice' : bigint,
 }
-export interface ShoppingItem {
-  'productName' : string,
-  'currency' : string,
-  'quantity' : bigint,
-  'priceInCents' : bigint,
-  'productDescription' : string,
-}
-export interface StripeConfiguration {
-  'allowedCountries' : Array<string>,
-  'secretKey' : string,
-}
-export type StripeSessionStatus = {
-    'completed' : { 'userPrincipal' : [] | [string], 'response' : string }
-  } |
-  { 'failed' : { 'error' : string } };
 export type Time = bigint;
-export interface TransformationInput {
-  'context' : Uint8Array,
-  'response' : http_request_result,
-}
-export interface TransformationOutput {
-  'status' : bigint,
-  'body' : Uint8Array,
-  'headers' : Array<http_header>,
-}
 export interface User {
   'id' : string,
   'vipStatus' : string,
@@ -84,36 +60,20 @@ export interface UserProfile {
   'avatar' : string,
   'online' : boolean,
 }
-export type UserRole = { 'admin' : null } |
-  { 'user' : null } |
-  { 'guest' : null };
 export interface UserSettings {
   'notifications' : boolean,
   'showOnlineStatus' : boolean,
   'showInRadius' : boolean,
 }
-export interface http_header { 'value' : string, 'name' : string }
-export interface http_request_result {
-  'status' : bigint,
-  'body' : Uint8Array,
-  'headers' : Array<http_header>,
-}
 export interface _SERVICE {
-  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
-  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'broadcastMessage' : ActorMethod<[string], undefined>,
-  'createCheckoutSession' : ActorMethod<
-    [Array<ShoppingItem>, string, string],
-    string
-  >,
   'deleteConversation' : ActorMethod<[string, string], undefined>,
   'deleteMessage' : ActorMethod<[string, string, Time], undefined>,
-  'deleteUser' : ActorMethod<[string], undefined>,
   'deleteOwnAccount' : ActorMethod<[string, string], boolean>,
+  'deleteUser' : ActorMethod<[string], undefined>,
   'follow' : ActorMethod<[string], string>,
   'getAllUsers' : ActorMethod<[], Array<User>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
-  'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getConversation' : ActorMethod<[string, string], Array<Message>>,
   'getCoordinates' : ActorMethod<[], [] | [Coordinates]>,
   'getFollowers' : ActorMethod<[string], Array<string>>,
@@ -124,14 +84,11 @@ export interface _SERVICE {
   >,
   'getNewMessages' : ActorMethod<[string, string, Time], Array<Message>>,
   'getPurchaseSettings' : ActorMethod<[], PurchaseSettings>,
-  'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
   'getTotalUnreadCount' : ActorMethod<[string], bigint>,
   'getUnreadCount' : ActorMethod<[string, string], bigint>,
   'getUserById' : ActorMethod<[string], [] | [User]>,
   'getUserByUsername' : ActorMethod<[string], [] | [User]>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
-  'isCallerAdmin' : ActorMethod<[], boolean>,
-  'isStripeConfigured' : ActorMethod<[], boolean>,
   'markConversationSeen' : ActorMethod<[string, string], undefined>,
   'register' : ActorMethod<[UserInput], User>,
   'removeFollower' : ActorMethod<[string], string>,
@@ -140,9 +97,7 @@ export interface _SERVICE {
   'sendMessage' : ActorMethod<[string, string, string], undefined>,
   'setOnlineStatus' : ActorMethod<[string, boolean], User>,
   'setPurchaseSettings' : ActorMethod<[PurchaseSettings], undefined>,
-  'setStripeConfiguration' : ActorMethod<[StripeConfiguration], undefined>,
   'setUserVipStatus' : ActorMethod<[string, string], User>,
-  'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
   'unfollow' : ActorMethod<[string], string>,
   'updateAvatar' : ActorMethod<[string, string], User>,
   'updateLocation' : ActorMethod<[string, LocationInput], User>,

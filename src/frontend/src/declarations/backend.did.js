@@ -8,18 +8,6 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
-export const UserRole = IDL.Variant({
-  'admin' : IDL.Null,
-  'user' : IDL.Null,
-  'guest' : IDL.Null,
-});
-export const ShoppingItem = IDL.Record({
-  'productName' : IDL.Text,
-  'currency' : IDL.Text,
-  'quantity' : IDL.Nat,
-  'priceInCents' : IDL.Nat,
-  'productDescription' : IDL.Text,
-});
 export const Time = IDL.Int;
 export const UserSettings = IDL.Record({
   'notifications' : IDL.Bool,
@@ -72,13 +60,6 @@ export const PurchaseSettings = IDL.Record({
   'enabled' : IDL.Bool,
   'standardPrice' : IDL.Nat,
 });
-export const StripeSessionStatus = IDL.Variant({
-  'completed' : IDL.Record({
-    'userPrincipal' : IDL.Opt(IDL.Text),
-    'response' : IDL.Text,
-  }),
-  'failed' : IDL.Record({ 'error' : IDL.Text }),
-});
 export const UserInput = IDL.Record({
   'id' : IDL.Text,
   'vipStatus' : IDL.Text,
@@ -88,51 +69,20 @@ export const UserInput = IDL.Record({
   'passwordHash' : IDL.Text,
   'avatar' : IDL.Text,
 });
-export const StripeConfiguration = IDL.Record({
-  'allowedCountries' : IDL.Vec(IDL.Text),
-  'secretKey' : IDL.Text,
-});
-export const http_header = IDL.Record({
-  'value' : IDL.Text,
-  'name' : IDL.Text,
-});
-export const http_request_result = IDL.Record({
-  'status' : IDL.Nat,
-  'body' : IDL.Vec(IDL.Nat8),
-  'headers' : IDL.Vec(http_header),
-});
-export const TransformationInput = IDL.Record({
-  'context' : IDL.Vec(IDL.Nat8),
-  'response' : http_request_result,
-});
-export const TransformationOutput = IDL.Record({
-  'status' : IDL.Nat,
-  'body' : IDL.Vec(IDL.Nat8),
-  'headers' : IDL.Vec(http_header),
-});
 export const LocationInput = IDL.Record({
   'lat' : IDL.Float64,
   'lng' : IDL.Float64,
 });
 
 export const idlService = IDL.Service({
-  '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-  'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'broadcastMessage' : IDL.Func([IDL.Text], [], []),
-  'createCheckoutSession' : IDL.Func(
-      [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
-      [IDL.Text],
-      [],
-    ),
   'deleteConversation' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'deleteMessage' : IDL.Func([IDL.Text, IDL.Text, Time], [], []),
+  'deleteOwnAccount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
   'deleteUser' : IDL.Func([IDL.Text], [], []),
-  'deleteOwnAccount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
-  'deleteOwnAccount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
   'follow' : IDL.Func([IDL.Text], [IDL.Text], []),
   'getAllUsers' : IDL.Func([], [IDL.Vec(User)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
-  'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getConversation' : IDL.Func(
       [IDL.Text, IDL.Text],
       [IDL.Vec(Message)],
@@ -152,7 +102,6 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getPurchaseSettings' : IDL.Func([], [PurchaseSettings], ['query']),
-  'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
   'getTotalUnreadCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
   'getUnreadCount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Nat], ['query']),
   'getUserById' : IDL.Func([IDL.Text], [IDL.Opt(User)], ['query']),
@@ -162,8 +111,6 @@ export const idlService = IDL.Service({
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
-  'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-  'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
   'markConversationSeen' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'register' : IDL.Func([UserInput], [User], []),
   'removeFollower' : IDL.Func([IDL.Text], [IDL.Text], []),
@@ -172,13 +119,7 @@ export const idlService = IDL.Service({
   'sendMessage' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
   'setOnlineStatus' : IDL.Func([IDL.Text, IDL.Bool], [User], []),
   'setPurchaseSettings' : IDL.Func([PurchaseSettings], [], []),
-  'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
   'setUserVipStatus' : IDL.Func([IDL.Text, IDL.Text], [User], []),
-  'transform' : IDL.Func(
-      [TransformationInput],
-      [TransformationOutput],
-      ['query'],
-    ),
   'unfollow' : IDL.Func([IDL.Text], [IDL.Text], []),
   'updateAvatar' : IDL.Func([IDL.Text, IDL.Text], [User], []),
   'updateLocation' : IDL.Func([IDL.Text, LocationInput], [User], []),
@@ -194,18 +135,6 @@ export const idlService = IDL.Service({
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
-  const UserRole = IDL.Variant({
-    'admin' : IDL.Null,
-    'user' : IDL.Null,
-    'guest' : IDL.Null,
-  });
-  const ShoppingItem = IDL.Record({
-    'productName' : IDL.Text,
-    'currency' : IDL.Text,
-    'quantity' : IDL.Nat,
-    'priceInCents' : IDL.Nat,
-    'productDescription' : IDL.Text,
-  });
   const Time = IDL.Int;
   const UserSettings = IDL.Record({
     'notifications' : IDL.Bool,
@@ -258,13 +187,6 @@ export const idlFactory = ({ IDL }) => {
     'enabled' : IDL.Bool,
     'standardPrice' : IDL.Nat,
   });
-  const StripeSessionStatus = IDL.Variant({
-    'completed' : IDL.Record({
-      'userPrincipal' : IDL.Opt(IDL.Text),
-      'response' : IDL.Text,
-    }),
-    'failed' : IDL.Record({ 'error' : IDL.Text }),
-  });
   const UserInput = IDL.Record({
     'id' : IDL.Text,
     'vipStatus' : IDL.Text,
@@ -274,46 +196,20 @@ export const idlFactory = ({ IDL }) => {
     'passwordHash' : IDL.Text,
     'avatar' : IDL.Text,
   });
-  const StripeConfiguration = IDL.Record({
-    'allowedCountries' : IDL.Vec(IDL.Text),
-    'secretKey' : IDL.Text,
-  });
-  const http_header = IDL.Record({ 'value' : IDL.Text, 'name' : IDL.Text });
-  const http_request_result = IDL.Record({
-    'status' : IDL.Nat,
-    'body' : IDL.Vec(IDL.Nat8),
-    'headers' : IDL.Vec(http_header),
-  });
-  const TransformationInput = IDL.Record({
-    'context' : IDL.Vec(IDL.Nat8),
-    'response' : http_request_result,
-  });
-  const TransformationOutput = IDL.Record({
-    'status' : IDL.Nat,
-    'body' : IDL.Vec(IDL.Nat8),
-    'headers' : IDL.Vec(http_header),
-  });
   const LocationInput = IDL.Record({
     'lat' : IDL.Float64,
     'lng' : IDL.Float64,
   });
   
   return IDL.Service({
-    '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-    'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'broadcastMessage' : IDL.Func([IDL.Text], [], []),
-    'createCheckoutSession' : IDL.Func(
-        [IDL.Vec(ShoppingItem), IDL.Text, IDL.Text],
-        [IDL.Text],
-        [],
-      ),
     'deleteConversation' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'deleteMessage' : IDL.Func([IDL.Text, IDL.Text, Time], [], []),
+    'deleteOwnAccount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
     'deleteUser' : IDL.Func([IDL.Text], [], []),
     'follow' : IDL.Func([IDL.Text], [IDL.Text], []),
     'getAllUsers' : IDL.Func([], [IDL.Vec(User)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
-    'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getConversation' : IDL.Func(
         [IDL.Text, IDL.Text],
         [IDL.Vec(Message)],
@@ -333,7 +229,6 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getPurchaseSettings' : IDL.Func([], [PurchaseSettings], ['query']),
-    'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
     'getTotalUnreadCount' : IDL.Func([IDL.Text], [IDL.Nat], ['query']),
     'getUnreadCount' : IDL.Func([IDL.Text, IDL.Text], [IDL.Nat], ['query']),
     'getUserById' : IDL.Func([IDL.Text], [IDL.Opt(User)], ['query']),
@@ -343,8 +238,6 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
-    'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-    'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
     'markConversationSeen' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'register' : IDL.Func([UserInput], [User], []),
     'removeFollower' : IDL.Func([IDL.Text], [IDL.Text], []),
@@ -353,13 +246,7 @@ export const idlFactory = ({ IDL }) => {
     'sendMessage' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
     'setOnlineStatus' : IDL.Func([IDL.Text, IDL.Bool], [User], []),
     'setPurchaseSettings' : IDL.Func([PurchaseSettings], [], []),
-    'setStripeConfiguration' : IDL.Func([StripeConfiguration], [], []),
     'setUserVipStatus' : IDL.Func([IDL.Text, IDL.Text], [User], []),
-    'transform' : IDL.Func(
-        [TransformationInput],
-        [TransformationOutput],
-        ['query'],
-      ),
     'unfollow' : IDL.Func([IDL.Text], [IDL.Text], []),
     'updateAvatar' : IDL.Func([IDL.Text, IDL.Text], [User], []),
     'updateLocation' : IDL.Func([IDL.Text, LocationInput], [User], []),

@@ -1,0 +1,114 @@
+// Version: 1.0.0
+type Coordinates__108420619 = {latitude : Text; longitude : Text};
+type Data__791452850<K, V> =
+  {var count : Nat__490723111; kvs : [var ?(K, V)]};
+type Int__270357528 = Int__616954475;
+type Int__616954475 = Int;
+type Internal__8484328<K, V> =
+  {children : [var ?Node__46230540<K, V>]; data : Data__791452850<K, V>};
+type Leaf__809889148<K, V> = {data : Data__791452850<K, V>};
+type List__415060402<T> = List__790383201<T>;
+type List__790383201<T> =
+  {
+    var blockIndex : Nat__490723111;
+    var blocks : [var [var ?T]];
+    var elementIndex : Nat__490723111
+  };
+type Location__31265466 =
+  {lat : Float; lng : Float; updatedAt : Time__900049286};
+type Map__158565046<K, V> = Map__297112838<K, V>;
+type Map__297112838<K, V> =
+  {var root : Node__46230540<K, V>; var size : Nat__490723111};
+type Map__605269027<K, V> = Map__158565046<K, V>;
+type Message__19119041 =
+  {
+    recipient : Text;
+    seen : Bool;
+    sender : Text;
+    text : Text;
+    timestamp : Time__900049286
+  };
+type Nat__490723111 = Nat__920180692;
+type Nat__920180692 = Nat;
+type Node__46230540<K, V> =
+  {#internal : Internal__8484328<K, V>; #leaf : Leaf__809889148<K, V>};
+type Time__796480547 = Int__270357528;
+type Time__900049286 = Time__796480547;
+type UserInternal__1043015516 =
+  {
+    avatar : Text;
+    displayName : Text;
+    id : Text;
+    lastSeen : Time__900049286;
+    location : ?Location__31265466;
+    online : Bool;
+    passwordHash : Text;
+    principal : Principal;
+    radiusTier : Nat;
+    settings : UserSettings__590554603;
+    username : Text;
+    vipStatus : Text
+  };
+type UserSettings__590554603 =
+  {notifications : Bool; showInRadius : Bool; showOnlineStatus : Bool};
+type _StripeConfiguration__279206531 =
+  {allowedCountries : [Text]; secretKey : Text};
+type _UserRole__955241368 = {#admin; #guest; #user};
+actor {
+  stable var accessControlState :
+    {
+      var adminAssigned : Bool;
+      userRoles : Map__605269027<Principal, _UserRole__955241368>
+    };
+  stable coordinatesStore :
+    {
+      var root : Node__46230540<Principal, Coordinates__108420619>;
+      var size : Nat__490723111
+    };
+  stable followers :
+    {
+      var root : Node__46230540<Text, List__415060402<Text>>;
+      var size : Nat__490723111
+    };
+  stable following :
+    {
+      var root : Node__46230540<Text, List__415060402<Text>>;
+      var size : Nat__490723111
+    };
+  stable var latestBroadcast : ?{text : Text; timestamp : Time__900049286};
+  stable messages :
+    {
+      var root : Node__46230540<Text, List__415060402<Message__19119041>>;
+      var size : Nat__490723111
+    };
+  stable principalToUserId :
+    {var root : Node__46230540<Principal, Text>; var size : Nat__490723111};
+  stable var purchaseSettings :
+    {
+      basicPrice : Nat;
+      enabled : Bool;
+      premiumPrice : Nat;
+      standardPrice : Nat
+    };
+  stable var stableCoordinates : [(Principal, Coordinates__108420619)];
+  stable var stableFollowers : [(Text, [Text])];
+  stable var stableFollowing : [(Text, [Text])];
+  stable var stableLatestBroadcast :
+    ?{text : Text; timestamp : Time__900049286};
+  stable var stableMessages : [(Text, [Message__19119041])];
+  stable var stablePrincipalToUserId : [(Principal, Text)];
+  stable var stablePurchaseSettings :
+    {
+      basicPrice : Nat;
+      enabled : Bool;
+      premiumPrice : Nat;
+      standardPrice : Nat
+    };
+  stable var stableUsers : [(Text, UserInternal__1043015516)];
+  stable var stripeConfiguration : ?_StripeConfiguration__279206531;
+  stable users :
+    {
+      var root : Node__46230540<Text, UserInternal__1043015516>;
+      var size : Nat__490723111
+    }
+};

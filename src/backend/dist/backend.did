@@ -1,0 +1,116 @@
+type UserSettings = 
+ record {
+   notifications: bool;
+   showInRadius: bool;
+   showOnlineStatus: bool;
+ };
+type UserProfile = 
+ record {
+   avatar: text;
+   displayName: text;
+   id: text;
+   lastSeen: Time;
+   location: opt Location;
+   online: bool;
+   radiusTier: nat;
+   settings: UserSettings;
+   username: text;
+   vipStatus: text;
+ };
+type UserInput = 
+ record {
+   avatar: text;
+   displayName: text;
+   id: text;
+   passwordHash: text;
+   radiusTier: nat;
+   username: text;
+   vipStatus: text;
+ };
+type User = 
+ record {
+   avatar: text;
+   displayName: text;
+   id: text;
+   lastSeen: Time;
+   location: opt Location;
+   online: bool;
+   radiusTier: nat;
+   settings: UserSettings;
+   username: text;
+   vipStatus: text;
+ };
+type Time = int;
+type PurchaseSettings = 
+ record {
+   basicPrice: nat;
+   enabled: bool;
+   premiumPrice: nat;
+   standardPrice: nat;
+ };
+type Message = 
+ record {
+   recipient: text;
+   seen: bool;
+   sender: text;
+   "text": text;
+   timestamp: Time;
+ };
+type LocationInput = 
+ record {
+   lat: float64;
+   lng: float64;
+ };
+type Location = 
+ record {
+   lat: float64;
+   lng: float64;
+   updatedAt: Time;
+ };
+type Coordinates = 
+ record {
+   latitude: text;
+   longitude: text;
+ };
+service : {
+  broadcastMessage: ("text": text) -> ();
+  deleteConversation: (userId: text, otherUserId: text) -> ();
+  deleteMessage: (userId: text, otherUserId: text, timestamp: Time) -> ();
+  deleteOwnAccount: (userId: text, passwordHash: text) -> (bool);
+  deleteUser: (userId: text) -> ();
+  follow: (username: text) -> (text);
+  getAllUsers: () -> (vec User) query;
+  getCallerUserProfile: () -> (opt UserProfile) query;
+  getConversation: (userId: text, otherUserId: text) -> (vec Message) query;
+  getCoordinates: () -> (opt Coordinates) query;
+  getFollowers: (username: text) -> (vec text) query;
+  getFollowing: (username: text) -> (vec text) query;
+  getLatestBroadcast: () ->
+   (opt record {
+          "text": text;
+          timestamp: Time;
+        }) query;
+  getNewMessages: (userId: text, otherUserId: text, lastTimestamp: Time) ->
+   (vec Message) query;
+  getPurchaseSettings: () -> (PurchaseSettings) query;
+  getTotalUnreadCount: (userId: text) -> (nat) query;
+  getUnreadCount: (userId: text, otherUserId: text) -> (nat) query;
+  getUserById: (userId: text) -> (opt User) query;
+  getUserByUsername: (username: text) -> (opt User) query;
+  getUserProfile: (userPrincipal: principal) -> (opt UserProfile) query;
+  markConversationSeen: (userId: text, otherUserId: text) -> ();
+  register: (input: UserInput) -> (User);
+  removeFollower: (followerUsername: text) -> (text);
+  saveCallerUserProfile: (profile: UserProfile) -> ();
+  saveCoordinates: (coordinates: Coordinates) -> ();
+  sendMessage: (sender: text, recipient: text, "text": text) -> ();
+  setOnlineStatus: (userId: text, online: bool) -> (User);
+  setPurchaseSettings: (settings: PurchaseSettings) -> ();
+  setUserVipStatus: (userId: text, status: text) -> (User);
+  unfollow: (username: text) -> (text);
+  updateAvatar: (userId: text, avatar: text) -> (User);
+  updateLocation: (userId: text, location: LocationInput) -> (User);
+  updateSettings: (userId: text, settings: UserSettings) -> (User);
+  updateUserRadiusTier: (userId: text, tier: nat) -> (User);
+  verifyCredentials: (username: text, passwordHash: text) -> (opt User) query;
+}

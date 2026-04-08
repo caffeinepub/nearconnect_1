@@ -5,18 +5,10 @@ import Runtime "mo:core/Runtime";
 import Array "mo:core/Array";
 import Principal "mo:core/Principal";
 import Time "mo:core/Time";
-import Auth "authorization/access-control";
-import Stripe "stripe/stripe";
-import OutCall "http-outcalls/outcall";
 import Iter "mo:core/Iter";
-
-import MixinAuthorization "authorization/MixinAuthorization";
 
 
 actor {
-  let accessControlState = Auth.initState();
-
-  include MixinAuthorization(accessControlState);
 
   public type Location = {
     lat : Float;
@@ -106,7 +98,18 @@ actor {
     longitude : Text;
   };
 
+  // ── Legacy types retained for upgrade compatibility ─────────────────────
+  type _UserRole = { #admin; #user; #guest };
+  type _AccessControlState = { var adminAssigned : Bool; userRoles : Map.Map<Principal, _UserRole> };
+  type _StripeConfiguration = { allowedCountries : [Text]; secretKey : Text };
+
   // ── Stable backing storage (survives upgrades) ──────────────────────────
+  // Legacy stable vars retained for upgrade compatibility
+  stable var accessControlState : _AccessControlState = {
+    var adminAssigned = false;
+    userRoles = Map.empty<Principal, _UserRole>();
+  };
+  stable var stripeConfiguration : ?_StripeConfiguration = null;
   stable var stableUsers : [(Text, UserInternal)] = [];
   stable var stablePrincipalToUserId : [(Principal, Text)] = [];
   stable var stableFollowers : [(Text, [Text])] = [];
@@ -129,7 +132,6 @@ actor {
   let messages = Map.empty<Text, List.List<Message>>();
   let coordinatesStore = Map.empty<Principal, Coordinates>();
 
-  var latestBroadcast : ?{ text : Text; timestamp : Time.Time } = null;
   var purchaseSettings : PurchaseSettings = {
     enabled = false;
     basicPrice = 0;
@@ -137,7 +139,7 @@ actor {
     premiumPrice = 0;
   };
 
-  var stripeConfiguration : ?Stripe.StripeConfiguration = null;
+  var latestBroadcast : ?{ text : Text; timestamp : Time.Time } = null;
 
   // ── Persistence hooks ───────────────────────────────────────────────────
   system func preupgrade() {
@@ -240,50 +242,6 @@ actor {
 
   func hasUserPermission(_caller : Principal) : Bool {
     true;
-  };
-
-  // ── Stripe Payment Integration ──────────────────────────────────────────
-  public query func isStripeConfigured() : async Bool {
-    stripeConfiguration != null;
-  };
-
-  public shared ({ caller }) func setStripeConfiguration(config : Stripe.StripeConfiguration) : async () {
-    if (not (Auth.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can set Stripe configuration");
-    };
-    stripeConfiguration := ?config;
-  };
-
-  public shared ({ caller }) func getStripeSessionStatus(sessionId : Text) : async Stripe.StripeSessionStatus {
-    if (not hasUserPermission(caller)) {
-      Runtime.trap("Unauthorized: Only authenticated users can check session status");
-    };
-    switch (stripeConfiguration) {
-      case (null) {
-        Runtime.trap("Stripe is not configured.");
-      };
-      case (?config) {
-        await Stripe.getSessionStatus(config, sessionId, transform);
-      };
-    };
-  };
-
-  public shared ({ caller }) func createCheckoutSession(items : [Stripe.ShoppingItem], successUrl : Text, cancelUrl : Text) : async Text {
-    if (not hasUserPermission(caller)) {
-      Runtime.trap("Unauthorized: Only authenticated users can create checkout sessions");
-    };
-    switch (stripeConfiguration) {
-      case (null) {
-        Runtime.trap("Stripe is not configured.");
-      };
-      case (?config) {
-        await Stripe.createCheckoutSession(config, caller, items, successUrl, cancelUrl, transform);
-      };
-    };
-  };
-
-  public query func transform(input : OutCall.TransformationInput) : async OutCall.TransformationOutput {
-    OutCall.transform(input);
   };
 
   public query func getPurchaseSettings() : async PurchaseSettings {
@@ -400,7 +358,7 @@ actor {
   };
 
   public shared ({ caller }) func updateLocation(userId : Text, location : LocationInput) : async User {
-    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+    if (not verifyUserOwnership(caller, userId)) {
       Runtime.trap("Unauthorized: Can only update your own location");
     };
     
@@ -490,7 +448,7 @@ actor {
   };
 
   public shared ({ caller }) func updateSettings(userId : Text, settings : UserSettings) : async User {
-    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+    if (not verifyUserOwnership(caller, userId)) {
       Runtime.trap("Unauthorized: Can only update your own settings");
     };
     
@@ -704,7 +662,7 @@ actor {
   };
 
   public query ({ caller }) func getConversation(userId : Text, otherUserId : Text) : async [Message] {
-    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+    if (not verifyUserOwnership(caller, userId)) {
       Runtime.trap("Unauthorized: Can only view your own conversations");
     };
 
@@ -716,7 +674,7 @@ actor {
   };
 
   public query ({ caller }) func getNewMessages(userId : Text, otherUserId : Text, lastTimestamp : Time.Time) : async [Message] {
-    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+    if (not verifyUserOwnership(caller, userId)) {
       Runtime.trap("Unauthorized: Can only view your own messages");
     };
 
@@ -784,7 +742,7 @@ actor {
   };
 
   public shared ({ caller }) func markConversationSeen(userId : Text, otherUserId : Text) : async () {
-    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+    if (not verifyUserOwnership(caller, userId)) {
       Runtime.trap("Unauthorized: Can only update your own messages");
     };
 
@@ -822,7 +780,7 @@ actor {
   };
 
   public query ({ caller }) func getUnreadCount(userId : Text, otherUserId : Text) : async Nat {
-    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+    if (not verifyUserOwnership(caller, userId)) {
       Runtime.trap("Unauthorized: Can only view your own messages");
     };
 
@@ -839,7 +797,7 @@ actor {
   };
 
   public query ({ caller }) func getTotalUnreadCount(userId : Text) : async Nat {
-    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+    if (not verifyUserOwnership(caller, userId)) {
       Runtime.trap("Unauthorized: Can only view your own messages");
     };
 
@@ -857,7 +815,7 @@ actor {
   };
 
   public shared ({ caller }) func deleteMessage(userId : Text, otherUserId : Text, timestamp : Time.Time) : async () {
-    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+    if (not verifyUserOwnership(caller, userId)) {
       Runtime.trap("Unauthorized: Can only delete your own messages");
     };
 
@@ -887,7 +845,7 @@ actor {
   };
 
   public shared ({ caller }) func deleteConversation(userId : Text, otherUserId : Text) : async () {
-    if (not verifyUserOwnership(caller, userId) and not Auth.isAdmin(accessControlState, caller)) {
+    if (not verifyUserOwnership(caller, userId)) {
       Runtime.trap("Unauthorized: Can only delete your own conversations");
     };
 

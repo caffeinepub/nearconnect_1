@@ -6,12 +6,11 @@ import {
   useRef,
   useState,
 } from "react";
-import type {
-  User as BackendUser,
-  PurchaseSettings,
-  backendInterface,
-} from "../backend";
-import { createActorWithConfig } from "../config";
+import {
+  type PurchaseSettings,
+  type VZActor,
+  createActorWithConfig,
+} from "../config";
 
 export type Theme =
   | "liquid-flux"
@@ -126,8 +125,8 @@ function bigintToRadiusTier(n: bigint): RadiusTier {
 }
 
 // Lazily initialized backend actor (module-level singleton)
-let _actorPromise: Promise<backendInterface> | null = null;
-function getActor(): Promise<backendInterface> {
+let _actorPromise: Promise<VZActor> | null = null;
+function getActor(): Promise<VZActor> {
   if (!_actorPromise) {
     _actorPromise = createActorWithConfig().catch((e) => {
       _actorPromise = null;

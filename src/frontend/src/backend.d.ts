@@ -12,11 +12,6 @@ export interface Location {
     lng: number;
     updatedAt: Time;
 }
-export interface TransformationOutput {
-    status: bigint;
-    body: Uint8Array;
-    headers: Array<http_header>;
-}
 export type Time = bigint;
 export interface Coordinates {
     latitude: string;
@@ -34,30 +29,6 @@ export interface User {
     avatar: string;
     online: boolean;
 }
-export interface LocationInput {
-    lat: number;
-    lng: number;
-}
-export interface http_header {
-    value: string;
-    name: string;
-}
-export interface http_request_result {
-    status: bigint;
-    body: Uint8Array;
-    headers: Array<http_header>;
-}
-export interface ShoppingItem {
-    productName: string;
-    currency: string;
-    quantity: bigint;
-    priceInCents: bigint;
-    productDescription: string;
-}
-export interface TransformationInput {
-    context: Uint8Array;
-    response: http_request_result;
-}
 export interface Message {
     seen: boolean;
     text: string;
@@ -70,18 +41,10 @@ export interface UserSettings {
     showOnlineStatus: boolean;
     showInRadius: boolean;
 }
-export type StripeSessionStatus = {
-    __kind__: "completed";
-    completed: {
-        userPrincipal?: string;
-        response: string;
-    };
-} | {
-    __kind__: "failed";
-    failed: {
-        error: string;
-    };
-};
+export interface LocationInput {
+    lat: number;
+    lng: number;
+}
 export interface UserInput {
     id: string;
     vipStatus: string;
@@ -90,10 +53,6 @@ export interface UserInput {
     displayName: string;
     passwordHash: string;
     avatar: string;
-}
-export interface StripeConfiguration {
-    allowedCountries: Array<string>;
-    secretKey: string;
 }
 export interface PurchaseSettings {
     basicPrice: bigint;
@@ -113,23 +72,15 @@ export interface UserProfile {
     avatar: string;
     online: boolean;
 }
-export enum UserRole {
-    admin = "admin",
-    user = "user",
-    guest = "guest"
-}
 export interface backendInterface {
-    assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     broadcastMessage(text: string): Promise<void>;
-    createCheckoutSession(items: Array<ShoppingItem>, successUrl: string, cancelUrl: string): Promise<string>;
     deleteConversation(userId: string, otherUserId: string): Promise<void>;
     deleteMessage(userId: string, otherUserId: string, timestamp: Time): Promise<void>;
-    deleteUser(userId: string): Promise<void>;
     deleteOwnAccount(userId: string, passwordHash: string): Promise<boolean>;
+    deleteUser(userId: string): Promise<void>;
     follow(username: string): Promise<string>;
     getAllUsers(): Promise<Array<User>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
-    getCallerUserRole(): Promise<UserRole>;
     getConversation(userId: string, otherUserId: string): Promise<Array<Message>>;
     getCoordinates(): Promise<Coordinates | null>;
     getFollowers(username: string): Promise<Array<string>>;
@@ -140,14 +91,11 @@ export interface backendInterface {
     } | null>;
     getNewMessages(userId: string, otherUserId: string, lastTimestamp: Time): Promise<Array<Message>>;
     getPurchaseSettings(): Promise<PurchaseSettings>;
-    getStripeSessionStatus(sessionId: string): Promise<StripeSessionStatus>;
     getTotalUnreadCount(userId: string): Promise<bigint>;
     getUnreadCount(userId: string, otherUserId: string): Promise<bigint>;
     getUserById(userId: string): Promise<User | null>;
     getUserByUsername(username: string): Promise<User | null>;
     getUserProfile(userPrincipal: Principal): Promise<UserProfile | null>;
-    isCallerAdmin(): Promise<boolean>;
-    isStripeConfigured(): Promise<boolean>;
     markConversationSeen(userId: string, otherUserId: string): Promise<void>;
     register(input: UserInput): Promise<User>;
     removeFollower(followerUsername: string): Promise<string>;
@@ -156,9 +104,7 @@ export interface backendInterface {
     sendMessage(sender: string, recipient: string, text: string): Promise<void>;
     setOnlineStatus(userId: string, online: boolean): Promise<User>;
     setPurchaseSettings(settings: PurchaseSettings): Promise<void>;
-    setStripeConfiguration(config: StripeConfiguration): Promise<void>;
     setUserVipStatus(userId: string, status: string): Promise<User>;
-    transform(input: TransformationInput): Promise<TransformationOutput>;
     unfollow(username: string): Promise<string>;
     updateAvatar(userId: string, avatar: string): Promise<User>;
     updateLocation(userId: string, location: LocationInput): Promise<User>;
