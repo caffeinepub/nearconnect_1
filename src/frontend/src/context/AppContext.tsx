@@ -65,6 +65,7 @@ export interface FriendUser {
   vipStatus?: string;
   bio?: string;
   userStatus?: string;
+  showInRadius?: boolean;
 }
 
 export interface Message {
@@ -314,18 +315,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, []);
 
-  const fetchBackendUsers = async (userId: string): Promise<void> => {
+  const fetchBackendUsers = async (userId: string): Promise<FriendUser[]> => {
     try {
       const actor = await getActor();
       const allBE = await actor.getAllUsers();
       const mapped: FriendUser[] = allBE
         .filter(
           (u) =>
-            u.id !== userId &&
-            u.settings?.showInRadius !== false &&
-            u.location != null &&
-            u.location.lat != null &&
-            u.location.lng != null,
+            u.id !== userId && u.username !== "admin" && u.radiusTier !== 999n,
         )
         .map((u) => ({
           id: u.id,
@@ -339,6 +336,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           isAdmin: false,
           avatar: u.avatar || "",
           vipStatus: u.vipStatus || "none",
+          showInRadius: u.settings?.showInRadius !== false,
         }));
       const localUsers: User[] = allBE.map((u) => ({
         id: u.id,
@@ -386,13 +384,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         return prev;
       });
+      return mapped;
     } catch {
       // Silent fail
+      return backendUsersRef.current;
     }
   };
 
-  const syncFriendships = async (user: User): Promise<void> => {
-    const allUserIds = backendUsersRef.current
+  const syncFriendships = async (
+    user: User,
+    overrideUsers?: FriendUser[],
+  ): Promise<void> => {
+    const sourceUsers =
+      overrideUsers !== undefined ? overrideUsers : backendUsersRef.current;
+    const allUserIds = sourceUsers
       .map((u) => u.id)
       .filter((id) => id !== user.id);
     if (allUserIds.length === 0) return;
@@ -438,8 +443,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refreshFriends = (): Promise<void> => {
     if (currentUser) {
-      return fetchBackendUsers(currentUser.id).then(() =>
-        syncFriendships(currentUser),
+      return fetchBackendUsers(currentUser.id).then((freshUsers) =>
+        syncFriendships(currentUser, freshUsers),
       );
     }
     return Promise.resolve();
@@ -469,13 +474,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     getActor()
       .then((actor) => actor.setOnlineStatus(id, navigator.onLine))
       .catch(() => {});
-    fetchBackendUsers(id).then(() => syncFriendships(currentUser));
+    // Fetch users first, then pass the fresh list directly to syncFriendships
+    // so mutualFriendIds is populated even if React hasn't flushed the state yet
+    fetchBackendUsers(id).then((freshUsers) =>
+      syncFriendships(currentUser, freshUsers),
+    );
     backendPollRef.current = setInterval(() => {
-      fetchBackendUsers(id);
+      fetchBackendUsers(id).then((freshUsers) =>
+        syncFriendships(currentUser, freshUsers),
+      );
     }, 10000);
-    syncRef.current = setInterval(() => {
-      syncFriendships(currentUser);
-    }, 30000);
     // Reset activity ref on mount so user is immediately online
     lastActivityRef.current = Date.now();
     // Heartbeat: keep online status alive every 45 seconds, idle after 10 min

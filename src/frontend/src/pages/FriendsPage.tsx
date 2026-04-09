@@ -57,9 +57,14 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
   };
   const maxMeters = TIER_METERS[currentUser?.radiusTier || "free"] ?? 500;
 
+  // isWithinRadius: used only for Nearby People (non-mutual users)
+  // - VibeBot: always true
+  // - No current user location: return true (can't filter, show all)
+  // - Friend has no coords: return false (can't calculate distance)
   const isWithinRadius = (f: FriendUser): boolean => {
     if (f.isBot) return true;
-    if (!userLocation || f.lat == null || f.lng == null) return true;
+    if (!userLocation) return true;
+    if (f.lat == null || f.lng == null) return false;
     const dist = getDistanceMeters(
       userLocation.lat,
       userLocation.lng,
@@ -73,12 +78,19 @@ export function FriendsPage({ onNavigate, onOpenChat }: FriendsPageProps) {
   const followingSet = new Set(followingUsernames);
   const [activeTab, setActiveTab] = useState<FriendsTab>("friends");
 
-  // Only show users within the selected radius tier
+  // Mutual friends always show regardless of distance/location; VibeBot always shows
   const mutualAndBot = friends.filter(
-    (f) => f.isBot || (mutualFriendIds.has(f.id) && isWithinRadius(f)),
+    (f) => f.isBot || mutualFriendIds.has(f.id),
   );
+  // Nearby People: non-mutual, non-bot, within radius, and showInRadius not disabled
   const nearbyPeople = friends.filter(
-    (f) => !f.isBot && !mutualFriendIds.has(f.id) && isWithinRadius(f),
+    (f) =>
+      !f.isBot &&
+      !mutualFriendIds.has(f.id) &&
+      f.showInRadius !== false &&
+      f.lat != null &&
+      f.lng != null &&
+      isWithinRadius(f),
   );
   const [locationRequested, setLocationRequested] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
